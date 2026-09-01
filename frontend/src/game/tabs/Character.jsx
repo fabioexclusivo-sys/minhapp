@@ -1,5 +1,6 @@
 import { useAuth } from "../../AuthContext";
 import { User, Ghost, Skull, Wrench, Crown, EyeOff } from "lucide-react";
+import { characterArt } from "../artwork";
 
 const AVATAR_ICON = { av_1: User, av_2: Ghost, av_3: Skull, av_4: Wrench, av_5: Crown, av_6: EyeOff };
 
@@ -20,8 +21,9 @@ export default function Character() {
   return (
     <div style={{ display: "grid", gap: 20 }}>
       <div className="hologram-border card-glow" style={{ padding: 32, display: "grid", gridTemplateColumns: "auto 1fr", gap: 32, alignItems: "center" }} data-testid="character-panel">
-        <div style={{ width: 160, height: 160, border: `2px solid ${spec?.color}`, boxShadow: `0 0 30px ${spec?.color}44`, display: "flex", alignItems: "center", justifyContent: "center", background: `linear-gradient(160deg,${spec?.color}22,#05050c 60%,#02020a)` }}>
-          <Icon size={82} strokeWidth={1.1} color={spec?.color} style={{ filter: `drop-shadow(0 0 14px ${spec?.color}bb)` }} />
+        <div style={{ width: 200, height: 220, border: `2px solid ${spec?.color}`, boxShadow: `0 0 30px ${spec?.color}44`, position: "relative", overflow: "hidden", ...characterArt(user.avatar_id) }}>
+          <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, transparent 55%, rgba(3,3,8,0.6) 100%)` }} />
+          <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${spec?.color}18 0%, transparent 60%)` }} />
         </div>
         <div>
           <div className="label-caps neon-cyan">OPERATOR PROFILE</div>

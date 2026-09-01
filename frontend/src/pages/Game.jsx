@@ -14,6 +14,7 @@ import Progress from "../game/tabs/Progress";
 import Assets from "../game/tabs/Assets";
 import Businesses from "../game/tabs/Businesses";
 import PvP from "../game/tabs/PvP";
+import BgManager from "../game/BgManager";
 import { api } from "../api";
 import { toast } from "sonner";
 import { Menu } from "lucide-react";
@@ -23,6 +24,7 @@ export default function Game() {
   const [tab, setTab] = useState("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [bgOpen, setBgOpen] = useState(false);
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 900);
@@ -51,17 +53,23 @@ export default function Game() {
 
   const Tab = { home: Home, character: Character, inventory: Inventory, arsenal: Arsenal, garage: Garage, crew: Crew, heists: Heists, map: MapView, progress: Progress, assets: Assets, businesses: Businesses, pvp: PvP, market: Arsenal }[tab] || Home;
 
+  const customBg = user.custom_bgs?.[tab];
+  const bgUrl = customBg && customBg.startsWith("/") ? process.env.REACT_APP_BACKEND_URL + customBg : customBg;
+  const bgStyle = bgUrl ? { backgroundImage: `url("${bgUrl}")`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", opacity: 0.4 } : {};
+
   return (
-    <div style={{ minHeight: "100vh", background: "#020204" }}>
-      <HUD toggleSidebar={() => setSidebarOpen(o => !o)} showMenu={isMobile} />
+    <div style={{ minHeight: "100vh", background: "#020204", position: "relative" }}>
+      <div className={`section-bg ${tab}`} style={bgStyle} />
+      <HUD toggleSidebar={() => setSidebarOpen(o => !o)} showMenu={isMobile} onSettings={() => setBgOpen(true)} />
       <Sidebar tab={tab} setTab={setTab} open={sidebarOpen} setOpen={setSidebarOpen} />
-      <main style={{ marginLeft: isMobile ? 0 : 240, paddingTop: 96, paddingBottom: 30, minHeight: "100vh" }} data-testid="game-main">
+      <main style={{ marginLeft: isMobile ? 0 : 240, paddingTop: 96, paddingBottom: 30, minHeight: "100vh", position: "relative" }} data-testid="game-main">
         <div style={{ padding: "18px 14px 40px" }}>
           <div className="fade-in-up" key={tab}>
             <Tab setTab={setTab} />
           </div>
         </div>
       </main>
+      {bgOpen && <BgManager onClose={() => setBgOpen(false)} />}
     </div>
   );
 }

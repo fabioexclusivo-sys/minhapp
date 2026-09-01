@@ -5,6 +5,7 @@ buy weapon/vehicle, hire crew, heist run + history, property buy/upgrade,
 business buy/collect, bank deposit/withdraw, pvp targets/history, rankings.
 """
 import os
+import re
 import uuid
 
 import pytest
@@ -483,3 +484,125 @@ class TestOfflineRaids:
         }})
         r = client.post(f"{API}/tick/offline-raids", headers=auth)
         assert r.status_code == 200, f"naive last_tick crashed: {r.status_code} {r.text[:300]}"
+
+
+# ---------- iteration 4: heist cooldown (server-enforced) ----------
+class TestHeistCooldown:
+    """POST /api/heist/run must reject a second run inside the tier cooldown window."""
+
+    CD_MAP = {"quick": 90, "street": 240, "heist": 600, "major": 1200}
+
+    def _reset(self, mongo, account, level=1, unset_cd=True):
+        upd = {"$set": {"health": 100, "heat": 0, "level": level,
+                        "ammo": {"9mm": 200, "5.56": 200, "7.62": 200, "12g": 200, ".45": 200},
+                        "equipped": {}, "vehicles": [{"id": "starter", "instance_id": "s1", "condition": 100}]}}
+        if unset_cd:
+            upd["$unset"] = {"last_heist_at": ""}
+        mongo.users.update_one({"id": account["id"]}, upd)
+
+    def test_first_run_ok_second_blocked(self, client, auth, mongo, account, character):
+        self._reset(mongo, account)
+        r1 = client.post(f"{API}/heist/run", json={"heist_id": "op_atm", "crew_ids": [], "vehicle_id": "starter"}, headers=auth)
+        assert r1.status_code == 200, r1.text[:400]
+        d1 = r1.json()
+        assert d1["cooldown_seconds"] == 90, f"quick cooldown should be 90, got {d1.get('cooldown_seconds')}"
+        # last_heist_at persisted
+        doc = mongo.users.find_one({"id": account["id"]})
+        assert doc.get("last_heist_at"), "last_heist_at not persisted"
+
+        # immediate second run -> 400 cooldown
+        mongo.users.update_one({"id": account["id"]}, {"$set": {"health": 100}})
+        r2 = client.post(f"{API}/heist/run", json={"heist_id": "op_atm", "crew_ids": [], "vehicle_id": "starter"}, headers=auth)
+        assert r2.status_code == 400, f"second run should be blocked, got {r2.status_code}"
+        detail = r2.json().get("detail", "")
+        assert re.match(r"Cooldown active\. \d+s remaining", detail), f"unexpected detail: {detail}"
+
+    @pytest.mark.parametrize("heist_id,level,crew,expected_cd", [
+        ("op_atm", 1, [], 90),
+        ("op_street_drug", 3, ["npc_1"], 240),
+        ("op_armored", 10, ["npc_1", "npc_2"], 600),
+    ])
+    def test_cooldown_seconds_per_tier(self, client, auth, mongo, account, character, heist_id, level, crew, expected_cd):
+        # need real npc ids from catalog
+        npcs = client.get(f"{API}/catalog").json()["npcs"]
+        crew_ids = [n["id"] for n in npcs[:len(crew)]]
+        self._reset(mongo, account, level=level)
+        mongo.users.update_one({"id": account["id"]}, {"$set": {"hired_crew": crew_ids}})
+        r = client.post(f"{API}/heist/run", json={"heist_id": heist_id, "crew_ids": crew_ids, "vehicle_id": "starter"}, headers=auth)
+        assert r.status_code == 200, r.text[:400]
+        assert r.json()["cooldown_seconds"] == expected_cd
+
+    def test_cooldown_expires(self, client, auth, mongo, account, character):
+        """Setting last_heist_at far in the past must allow a new run."""
+        from datetime import datetime, timedelta, timezone
+        self._reset(mongo, account, unset_cd=False)
+        mongo.users.update_one({"id": account["id"]}, {"$set": {
+            "last_heist_at": (datetime.now(timezone.utc) - timedelta(seconds=5000)).isoformat()}})
+        r = client.post(f"{API}/heist/run", json={"heist_id": "op_atm", "crew_ids": [], "vehicle_id": "starter"}, headers=auth)
+        assert r.status_code == 200, r.text[:400]
+
+    def test_cooldown_is_not_tier_of_last_run(self, client, auth, mongo, account, character):
+        """Regression guard: cooldown is computed from the ATTEMPTED heist tier, not the last run's tier.
+
+        After a 600s 'heist' tier op, a 90s 'quick' op becomes available after only 90s,
+        which lets a player bypass the long cooldowns.
+        """
+        from datetime import datetime, timedelta, timezone
+        self._reset(mongo, account, level=10, unset_cd=False)
+        npcs = client.get(f"{API}/catalog").json()["npcs"]
+        crew_ids = [n["id"] for n in npcs[:2]]
+        mongo.users.update_one({"id": account["id"]}, {"$set": {"hired_crew": crew_ids, "last_heist_at": None}})
+        r = client.post(f"{API}/heist/run", json={"heist_id": "op_armored", "crew_ids": crew_ids, "vehicle_id": "starter"}, headers=auth)
+        assert r.status_code == 200, r.text[:400]
+        assert r.json()["cooldown_seconds"] == 600
+        # pretend 100s elapsed (< 600 heist cd, > 90 quick cd)
+        mongo.users.update_one({"id": account["id"]}, {"$set": {
+            "health": 100,
+            "last_heist_at": (datetime.now(timezone.utc) - timedelta(seconds=100)).isoformat()}})
+        r2 = client.post(f"{API}/heist/run", json={"heist_id": "op_atm", "crew_ids": [], "vehicle_id": "starter"}, headers=auth)
+        assert r2.status_code == 400, (
+            "EXPLOIT: long-tier cooldown bypassable by running a quick op "
+            f"(got {r2.status_code} {r2.text[:200]})")
+
+
+# ---------- iteration 4: heist difficulty nerf ----------
+class TestHeistDifficulty:
+    """40 op_atm runs as a fresh, unequipped user: >=30% must NOT be SUCCESS/PERFECT SUCCESS."""
+
+    def test_outcome_distribution_is_harder(self, client, auth, mongo, account, character):
+        from datetime import datetime, timedelta, timezone
+        outcomes = []
+        for _ in range(40):
+            mongo.users.update_one({"id": account["id"]}, {"$set": {
+                "health": 100, "heat": 0, "reputation": 0, "level": 1, "hired_crew": [],
+                "equipped": {}, "armors": [], "weapons": [],
+                "vehicles": [{"id": "starter", "instance_id": "s1", "condition": 100}],
+                "last_heist_at": (datetime.now(timezone.utc) - timedelta(seconds=5000)).isoformat(),
+            }})
+            r = client.post(f"{API}/heist/run", json={"heist_id": "op_atm", "crew_ids": [], "vehicle_id": "starter"}, headers=auth)
+            assert r.status_code == 200, r.text[:300]
+            outcomes.append(r.json()["outcome"])
+        good = [o for o in outcomes if o in ("PERFECT SUCCESS", "SUCCESS")]
+        not_good_rate = 1 - len(good) / len(outcomes)
+        print(f"\nOutcome distribution (40 op_atm runs): "
+              f"{ {o: outcomes.count(o) for o in set(outcomes)} } -> non-success rate {not_good_rate:.0%}")
+        assert not_good_rate >= 0.30, f"heists still too easy: only {not_good_rate:.0%} non-success | {outcomes}"
+
+    def test_failed_outcome_pays_nothing(self, client, auth, mongo, account, character):
+        """FAILED/DISASTER must give 0 cash; verify via history that any failed op recorded cash 0."""
+        r = client.get(f"{API}/heist/history", headers=auth)
+        assert r.status_code == 200
+        ops = r.json()
+        bad = [o for o in ops if o["outcome"] in ("FAILED", "DISASTER")]
+        if not bad:
+            pytest.skip("no failed ops recorded in history yet")
+        assert all(o["cash"] == 0 for o in bad), f"failed ops paid cash: {bad[:3]}"
+
+    def test_health_gate_blocks_run(self, client, auth, mongo, account, character):
+        from datetime import datetime, timedelta, timezone
+        mongo.users.update_one({"id": account["id"]}, {"$set": {
+            "health": 10,
+            "last_heist_at": (datetime.now(timezone.utc) - timedelta(seconds=5000)).isoformat()}})
+        r = client.post(f"{API}/heist/run", json={"heist_id": "op_atm", "crew_ids": [], "vehicle_id": "starter"}, headers=auth)
+        assert r.status_code == 400
+        assert "Health" in r.json()["detail"]

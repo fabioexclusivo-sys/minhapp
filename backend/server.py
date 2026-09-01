@@ -3,8 +3,9 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict, Any
@@ -241,6 +242,10 @@ class RaidIn(BaseModel):
     target_username: str
     property_id: str
     crew_ids: List[str] = []
+
+class BgIn(BaseModel):
+    section: str
+    url: str = ""
 
 # ========== AUTH ==========
 @api.post("/auth/signup")
@@ -483,43 +488,43 @@ def simulate_heist(user: dict, heist: dict, crew_ids: List[str], vehicle_id: str
     armor = find_item(ARMORS, armor_id) if armor_id else None
     crew_data = [find_item(NPCS, cid) for cid in crew_ids if find_item(NPCS, cid)]
 
-    # base success prob
+    # base success prob — HARDER GRIND
     difficulty = heist["difficulty"]
-    base = max(0.15, 0.9 - difficulty * 0.06)
-    # weapon bonus
+    base = max(0.10, 0.72 - difficulty * 0.06)
+    # weapon bonus (smaller)
     if weapon:
-        base += (weapon["damage"] / 500) + (weapon["accuracy"] / 800)
-    # vehicle bonus
+        base += (weapon["damage"] / 700) + (weapon["accuracy"] / 1200)
+    # vehicle bonus (smaller)
     if veh_data:
-        base += (veh_data["escape"] / 800)
+        base += (veh_data["escape"] / 1200)
     # armor
     if armor:
-        base += armor["damage_reduction"] / 500
-    # crew
-    base += len(crew_data) * 0.04
+        base += armor["damage_reduction"] / 700
+    # crew (smaller bonus)
+    base += len(crew_data) * 0.025
     # crew specs
     specs_available = {spec} | {c["spec"] for c in crew_data}
-    diverse_bonus = len(specs_available) * 0.02
+    diverse_bonus = len(specs_available) * 0.015
     base += diverse_bonus
     # rep bonus
-    base += min(0.15, user["reputation"] / 2000)
-    # heat penalty
-    base -= min(0.25, user["heat"] / 400)
+    base += min(0.10, user["reputation"] / 3000)
+    # heat penalty (bigger)
+    base -= min(0.30, user["heat"] / 300)
 
-    base = max(0.05, min(0.95, base))
+    base = max(0.05, min(0.90, base))
     roll = random.random()
 
-    # determine outcome tier
-    if roll < base - 0.25:
-        outcome = "PERFECT SUCCESS"; mult = 1.6; rep_mult = 2.0; hp_loss_pct = 0.05
-    elif roll < base - 0.05:
-        outcome = "SUCCESS"; mult = 1.0; rep_mult = 1.0; hp_loss_pct = 0.15
-    elif roll < base + 0.15:
-        outcome = "PARTIAL SUCCESS"; mult = 0.5; rep_mult = 0.4; hp_loss_pct = 0.35
+    # determine outcome tier — HARDER: fewer perfect, more partial/failed
+    if roll < base - 0.35:
+        outcome = "PERFECT SUCCESS"; mult = 1.5; rep_mult = 2.0; hp_loss_pct = 0.08
+    elif roll < base - 0.15:
+        outcome = "SUCCESS"; mult = 0.9; rep_mult = 1.0; hp_loss_pct = 0.22
+    elif roll < base + 0.10:
+        outcome = "PARTIAL SUCCESS"; mult = 0.45; rep_mult = 0.4; hp_loss_pct = 0.45
     elif roll < base + 0.30:
-        outcome = "FAILED"; mult = 0.0; rep_mult = -0.1; hp_loss_pct = 0.55
+        outcome = "FAILED"; mult = 0.0; rep_mult = -0.15; hp_loss_pct = 0.65
     else:
-        outcome = "DISASTER"; mult = 0.0; rep_mult = -0.25; hp_loss_pct = 0.85
+        outcome = "DISASTER"; mult = 0.0; rep_mult = -0.30; hp_loss_pct = 0.95
 
     # event generation
     add(f"Crew mobilized. Rolling to {heist['name']}.", "info")
@@ -629,6 +634,15 @@ async def run_heist(data: HeistIn, request: Request):
         raise HTTPException(400, "Vehicle not owned")
     if user["health"] < 30:
         raise HTTPException(400, "Health too low. Heal first.")
+    # cooldown check: scales with heist tier
+    cooldown_map = {"quick": 90, "street": 240, "heist": 600, "major": 1200}
+    cd_seconds = cooldown_map.get(heist["type"], 180)
+    last_heist = user.get("last_heist_at")
+    if last_heist:
+        elapsed = (datetime.now(timezone.utc) - datetime.fromisoformat(last_heist)).total_seconds()
+        remaining = cd_seconds - elapsed
+        if remaining > 0:
+            raise HTTPException(400, f"Cooldown active. {int(remaining)}s remaining before next operation.")
     # check ammo
     weapon_id = user["equipped"].get("primary") or user["equipped"].get("secondary")
     weapon = find_item(WEAPONS, weapon_id) if weapon_id else None
@@ -666,7 +680,8 @@ async def run_heist(data: HeistIn, request: Request):
     # save
     await db.users.update_one({"id": user["id"]}, {"$set": {
         "money": user["money"], "xp": user["xp"], "level": user["level"], "reputation": user["reputation"],
-        "heat": user["heat"], "health": user["health"], "vehicles": user["vehicles"], "ammo": user["ammo"], "stats": user["stats"]
+        "heat": user["heat"], "health": user["health"], "vehicles": user["vehicles"], "ammo": user["ammo"], "stats": user["stats"],
+        "last_heist_at": datetime.now(timezone.utc).isoformat()
     }})
 
     # log operation
@@ -684,7 +699,7 @@ async def run_heist(data: HeistIn, request: Request):
 
     updated = await db.users.find_one({"id": user["id"]})
     updated.pop("_id", None); updated.pop("password_hash", None)
-    return {"events": result["events"], "outcome": result["outcome"], "rewards": rew, "user": updated}
+    return {"events": result["events"], "outcome": result["outcome"], "rewards": rew, "user": updated, "cooldown_seconds": cd_seconds}
 
 @api.get("/heist/history")
 async def heist_history(request: Request, limit: int = 30):
@@ -1028,6 +1043,22 @@ async def claim_mission(data: ClaimIn, request: Request):
     check_level_up(tmp)
     await db.users.update_one({"id": user["id"]}, {"$set": {"money": new_money, "xp": tmp["xp"], "level": tmp["level"], "reputation": new_rep, "missions_claimed": claimed}})
     return {"ok": True, "reward": {"cash": m["reward_cash"], "xp": m["reward_xp"], "rep": m["reward_rep"]}, "money": new_money}
+
+# ========== CUSTOM BACKGROUNDS ==========
+# Upload endpoint moved to Emergent Object Storage (see below).
+
+@api.post("/player/set-bg")
+async def set_bg(data: BgIn, request: Request):
+    user = await get_current_user(request)
+    if data.section not in {"home", "character", "inventory", "arsenal", "garage", "crew", "heists", "assets", "businesses", "pvp", "map", "progress"}:
+        raise HTTPException(400, "Invalid section")
+    bgs = user.get("custom_bgs") or {}
+    if data.url.strip():
+        bgs[data.section] = data.url.strip()
+    else:
+        bgs.pop(data.section, None)
+    await db.users.update_one({"id": user["id"]}, {"$set": {"custom_bgs": bgs}})
+    return {"ok": True, "custom_bgs": bgs}
 
 @api.get("/")
 async def root():

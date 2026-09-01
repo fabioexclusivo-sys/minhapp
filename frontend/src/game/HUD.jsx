@@ -36,7 +36,7 @@ function IconBtn({ Icon, badge, onClick, color = "#94a3b8", testid }) {
   );
 }
 
-export default function HUD({ toggleSidebar, showMenu }) {
+export default function HUD({ toggleSidebar, showMenu, onSettings }) {
   const { user, catalog, logout } = useAuth();
   const spec = catalog?.specializations.find(s => s.id === user.specialization);
   const xpMax = 1000 + (user.level - 1) * 500;
@@ -90,7 +90,7 @@ export default function HUD({ toggleSidebar, showMenu }) {
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <IconBtn testid="hud-bell" Icon={Bell} badge={true} />
         <IconBtn testid="hud-mail" Icon={Mail} badge={6} />
-        <IconBtn testid="hud-settings" Icon={Settings} />
+        <IconBtn testid="hud-settings" Icon={Settings} onClick={onSettings} />
         <IconBtn testid="hud-logout" Icon={Power} onClick={logout} color="#EF4444" />
       </div>
     </header>

@@ -2,7 +2,7 @@ import { useAuth } from "../../AuthContext";
 import { api, fmtDetail, fmtMoney } from "../../api";
 import { toast } from "sonner";
 import { Car, Bike, Truck, Zap } from "lucide-react";
-import { VEHICLE_IMG } from "../images";
+import { vehicleArt } from "../artwork";
 
 const CAT_COLORS = { compact: "#A855F7", sport: "#38BDF8", muscle: "#10B981", super: "#22C55E", bike: "#F59E0B", armored: "#EF4444", utility: "#06B6D4", special: "#EC4899" };
 const CAT_ICON = { compact: Car, sport: Car, muscle: Car, super: Car, bike: Bike, armored: Truck, utility: Truck, special: Zap };
@@ -44,23 +44,13 @@ export default function Garage() {
           const owned = user.vehicles.some(x => x.id === v.id);
           return (
             <div key={v.id} className="card-glow" style={{ padding: 0, borderColor: `${color}55`, overflow: "hidden" }}>
-              <div style={{ height: 150, background: `linear-gradient(160deg, ${color}22 0%, #05050c 60%, #02020a 100%)`, display: "flex", alignItems: "center", justifyContent: "center", borderBottom: `1px solid ${color}33`, position: "relative", overflow: "hidden" }}>
-                {VEHICLE_IMG[v.id] ? (
-                  <>
-                    <img src={VEHICLE_IMG[v.id]} alt="" loading="lazy" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.6 }} />
-                    <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, transparent 0%, rgba(3,3,8,0.4) 55%, #050508 100%)` }} />
-                    <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${color}30 0%, transparent 60%)` }} />
-                    <div style={{ position: "absolute", top: 10, left: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                      <Icon size={16} color={color} style={{ filter: `drop-shadow(0 0 6px ${color}aa)` }} />
-                      <span className="label-caps" style={{ color, letterSpacing: "0.24em" }}>{v.cat}</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 50% 60%, transparent 30%, rgba(0,0,0,0.65) 100%)" }} />
-                    <Icon size={80} strokeWidth={1.1} color={color} style={{ filter: `drop-shadow(0 0 16px ${color}aa)` }} />
-                  </>
-                )}
+              <div style={{ height: 160, position: "relative", overflow: "hidden", borderBottom: `1px solid ${color}33`, ...vehicleArt(v.cat) }}>
+                <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, transparent 0%, rgba(3,3,8,0.3) 55%, #050508 100%)` }} />
+                <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${color}22 0%, transparent 55%)` }} />
+                <div style={{ position: "absolute", top: 10, left: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Icon size={16} color={color} style={{ filter: `drop-shadow(0 0 6px ${color}aa)` }} />
+                  <span className="label-caps" style={{ color, letterSpacing: "0.24em" }}>{v.cat}</span>
+                </div>
               </div>
               <div style={{ padding: 16 }}>
                 <div className="font-display" style={{ color: "#fff", fontSize: 16, fontWeight: 800, letterSpacing: "0.06em", marginBottom: 4 }}>{v.name.toUpperCase()}</div>

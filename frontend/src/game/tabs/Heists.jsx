@@ -14,8 +14,20 @@ export default function Heists() {
   const [events, setEvents] = useState([]);
   const [outcome, setOutcome] = useState(null);
   const [history, setHistory] = useState([]);
+  const [cdLeft, setCdLeft] = useState(0);
 
   useEffect(() => { (async () => { try { const { data } = await api.get("/heist/history"); setHistory(data); } catch {} })(); }, []);
+  useEffect(() => {
+    if (!user.last_heist_at) return;
+    const t = setInterval(() => {
+      const elapsed = (Date.now() - new Date(user.last_heist_at).getTime()) / 1000;
+      const cdMap = { quick: 90, street: 240, heist: 600, major: 1200 };
+      const lastType = history[0]?.heist_id ? (catalog?.heists.find(h => h.id === history[0].heist_id)?.type || "quick") : "quick";
+      const cd = cdMap[lastType] || 180;
+      setCdLeft(Math.max(0, Math.ceil(cd - elapsed)));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [user.last_heist_at, history, catalog]);
 
   if (!catalog) return null;
 
@@ -49,6 +61,9 @@ export default function Heists() {
           <h2 className="font-display" style={{ fontSize: 24, color: "#fff", letterSpacing: "0.1em", marginBottom: 4 }}>OPERATIONS</h2>
           <div style={{ color: "#64748B", fontSize: 13 }}>Prepare well. During the operation you observe — the events unfold based on your crew, gear and specialization.</div>
         </div>
+        {cdLeft > 0 && <div style={{ padding: 14, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.4)", color: "#EF4444", fontFamily: "Orbitron", fontSize: 12, letterSpacing: "0.15em" }} data-testid="cooldown-banner">
+          ⏱ COOLDOWN ACTIVE · {Math.floor(cdLeft / 60)}m {cdLeft % 60}s remaining before your next operation
+        </div>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
           {catalog.heists.map(h => {
             const locked = user.level < h.min_level;
@@ -124,7 +139,7 @@ export default function Heists() {
           ⚠ CREW WARNING · Crew specialization can affect operation outcome. Diverse teams reduce risk.
         </div>
 
-        <button data-testid="run-operation" onClick={start} disabled={crewSel.length < selected.min_crew} className="btn-primary" style={{ width: "100%", padding: 14, fontSize: 14 }}>▶ RUN OPERATION</button>
+        <button data-testid="run-operation" onClick={start} disabled={crewSel.length < selected.min_crew || cdLeft > 0} className="btn-primary" style={{ width: "100%", padding: 14, fontSize: 14 }}>{cdLeft > 0 ? `⏱ COOLDOWN ${Math.floor(cdLeft/60)}m ${cdLeft%60}s` : "▶ RUN OPERATION"}</button>
       </div>}
 
       {running && <div className="hologram-border card-glow" style={{ padding: 24 }} data-testid="operation-running">

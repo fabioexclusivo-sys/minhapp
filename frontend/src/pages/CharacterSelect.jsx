@@ -4,6 +4,7 @@ import { useAuth } from "../AuthContext";
 import { api, fmtDetail } from "../api";
 import { toast } from "sonner";
 import { User, Ghost, Skull, Wrench, Crown, EyeOff } from "lucide-react";
+import { characterArt } from "../game/artwork";
 
 const AVATARS = [
   { id: "av_1", name: "Street Thug", tag: "The Survivor", color: "#A855F7", Icon: User },
@@ -60,9 +61,9 @@ export default function CharacterSelect() {
               const selected = avatar === a.id;
               return (
                 <button data-testid={`avatar-${a.id}`} key={a.id} onClick={() => setAvatar(a.id)} className="card-glow" style={{ padding: 0, textAlign: "left", borderColor: selected ? a.color : undefined, boxShadow: selected ? `0 0 24px ${a.color}66` : undefined, overflow: "hidden" }}>
-                  <div style={{ height: 140, background: `linear-gradient(160deg, ${a.color}22 0%, #05050c 60%, #02020a 100%)`, display: "flex", alignItems: "center", justifyContent: "center", borderBottom: `1px solid ${a.color}33`, position: "relative" }}>
-                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 50% 60%, transparent 40%, rgba(0,0,0,0.55) 100%)" }} />
-                    <Icon size={72} strokeWidth={1.1} color={a.color} style={{ filter: `drop-shadow(0 0 12px ${a.color}88)` }} />
+                  <div style={{ height: 180, position: "relative", overflow: "hidden", borderBottom: `1px solid ${a.color}33`, ...characterArt(a.id) }}>
+                    <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, transparent 50%, rgba(3,3,8,0.6) 100%)` }} />
+                    <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${a.color}22 0%, transparent 60%)` }} />
                   </div>
                   <div style={{ padding: 14 }}>
                     <div className="font-display" style={{ fontSize: 15, color: "#fff", fontWeight: 800, letterSpacing: "0.08em" }}>{a.name.toUpperCase()}</div>

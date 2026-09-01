@@ -3,7 +3,7 @@ import { useAuth } from "../../AuthContext";
 import { api, fmtDetail, fmtMoney } from "../../api";
 import { toast } from "sonner";
 import { Briefcase, Crosshair, Car, Users, Target, Home as HomeIcon, Building2, Map as MapIcon, Trophy, User as UserIcon, Skull, Zap, Wrench, Activity, Shield, Sparkles, Clock, DollarSign, TrendingUp, Flame, CheckCircle2, Circle } from "lucide-react";
-import { HERO_BG, CARD_BG } from "../images";
+import { HERO_BG, CARD_BG, FEATURED_ART, PORTRAIT_BG } from "../images";
 
 function BigCard({ id, title, color, image, desc, onClick, testid }) {
   return (
@@ -164,6 +164,10 @@ export default function HomeTab({ setTab }) {
 
         <div className="cards-3" style={{ display: "grid", gap: 12 }}>
           {featuredWeapon && <FeaturedCard title="FEATURED WEAPON" color="#EC4899" testid="featured-weapon">
+            <div style={{ height: 130, marginLeft: -18, marginRight: -18, marginTop: -6, marginBottom: 12, position: "relative", overflow: "hidden", background: "#000" }}>
+              <img src={FEATURED_ART.weapon} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "drop-shadow(0 0 12px rgba(236,72,153,0.35))" }} />
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 55%, #08080f 100%)" }} />
+            </div>
             <div className="font-display" style={{ fontSize: 20, color: "#fff", fontWeight: 800, letterSpacing: "0.06em" }}>{featuredWeapon.name.toUpperCase()}</div>
             <div className="label-caps" style={{ fontSize: 9, color: "#EC4899", marginTop: 2 }}>{featuredWeapon.cat.toUpperCase()}</div>
             <div style={{ marginTop: 14 }}>
@@ -174,6 +178,10 @@ export default function HomeTab({ setTab }) {
           </FeaturedCard>}
 
           {featuredVehicle && <FeaturedCard title="FEATURED VEHICLE" color="#38BDF8" testid="featured-vehicle">
+            <div style={{ height: 130, marginLeft: -18, marginRight: -18, marginTop: -6, marginBottom: 12, position: "relative", overflow: "hidden", background: "#000" }}>
+              <img src={FEATURED_ART.vehicle} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "drop-shadow(0 0 12px rgba(56,189,248,0.35))" }} />
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 55%, #08080f 100%)" }} />
+            </div>
             <div className="font-display" style={{ fontSize: 20, color: "#fff", fontWeight: 800, letterSpacing: "0.06em" }}>{featuredVehicle.name.toUpperCase()}</div>
             <div className="label-caps" style={{ fontSize: 9, color: "#38BDF8", marginTop: 2 }}>{featuredVehicle.cat.toUpperCase()}</div>
             <div style={{ marginTop: 14 }}>
@@ -185,6 +193,10 @@ export default function HomeTab({ setTab }) {
           </FeaturedCard>}
 
           {dailyContract && <FeaturedCard title="DAILY CONTRACT" color="#EF4444" testid="daily-contract">
+            <div style={{ height: 130, marginLeft: -18, marginRight: -18, marginTop: -6, marginBottom: 12, position: "relative", overflow: "hidden", background: "#000" }}>
+              <img src={FEATURED_ART.contract} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,8,15,0.15) 0%, #08080f 100%)" }} />
+            </div>
             <div className="font-display" style={{ fontSize: 20, color: "#fff", fontWeight: 800, letterSpacing: "0.06em" }}>{dailyContract.name.toUpperCase()}</div>
             <div className="label-caps" style={{ fontSize: 9, color: "#EF4444", marginTop: 2 }}>{dailyContract.type.toUpperCase()}</div>
             <div style={{ marginTop: 14, fontSize: 11, color: "#94a3b8", display: "flex", flexDirection: "column", gap: 8 }}>

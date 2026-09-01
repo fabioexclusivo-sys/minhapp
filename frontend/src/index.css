@@ -77,7 +77,21 @@ a { color: inherit; text-decoration: none; }
 .outcome-failed { color: #EF4444; text-shadow: 0 0 22px rgba(239,68,68,0.7); }
 .outcome-disaster { color: #7f1d1d; text-shadow: 0 0 22px rgba(127,29,29,0.9); }
 
-/* Responsive dashboard grid */
+/* Section ambient backgrounds — cyberpunk atmosphere per tab */
+.section-bg { position: fixed; top: 96px; left: 240px; right: 0; bottom: 0; z-index: -1; pointer-events: none; opacity: 0.35; }
+@media (max-width: 900px) { .section-bg { left: 0; } }
+.section-bg.home { background: radial-gradient(ellipse at 20% 20%, #1e0846 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, #4a0d3f 0%, transparent 55%), linear-gradient(180deg, #050508 0%, #02020a 100%); }
+.section-bg.arsenal { background: radial-gradient(circle at 30% 40%, #4a0e1a 0%, transparent 55%), radial-gradient(circle at 70% 70%, #1a0a12 0%, transparent 50%), linear-gradient(180deg, #08020a 0%, #050106 100%); }
+.section-bg.garage { background: radial-gradient(circle at 20% 60%, #0a2438 0%, transparent 55%), radial-gradient(circle at 80% 30%, #3b0a4a 0%, transparent 50%), linear-gradient(180deg, #030814 0%, #020306 100%); }
+.section-bg.inventory { background: radial-gradient(circle at 30% 30%, #2a0b3d 0%, transparent 55%), radial-gradient(circle at 70% 70%, #1a0028 0%, transparent 50%), linear-gradient(180deg, #0a0518 0%, #04020a 100%); }
+.section-bg.crew { background: radial-gradient(circle at 25% 45%, #4a2a0d 0%, transparent 55%), radial-gradient(circle at 75% 60%, #4a0d2a 0%, transparent 50%), linear-gradient(180deg, #0d0705 0%, #050205 100%); }
+.section-bg.heists { background: radial-gradient(circle at 50% 40%, #4a0d0d 0%, transparent 55%), radial-gradient(circle at 20% 80%, #2a0d4a 0%, transparent 50%), linear-gradient(180deg, #0a0505 0%, #030105 100%); }
+.section-bg.assets { background: radial-gradient(circle at 30% 60%, #3a0d4a 0%, transparent 55%), radial-gradient(circle at 80% 30%, #0d3a4a 0%, transparent 50%), linear-gradient(180deg, #08050d 0%, #030308 100%); }
+.section-bg.businesses { background: radial-gradient(circle at 25% 30%, #4a2a0d 0%, transparent 55%), radial-gradient(circle at 75% 70%, #3a0d1a 0%, transparent 50%), linear-gradient(180deg, #0d0805 0%, #050305 100%); }
+.section-bg.pvp { background: radial-gradient(circle at 50% 30%, #6b0d1a 0%, transparent 55%), radial-gradient(circle at 20% 80%, #4a0d0d 0%, transparent 50%), linear-gradient(180deg, #0a0303 0%, #050101 100%); }
+.section-bg.map { background: radial-gradient(circle at 30% 40%, #0d3a4a 0%, transparent 55%), radial-gradient(circle at 70% 60%, #0d4a2a 0%, transparent 50%), linear-gradient(180deg, #030808 0%, #010305 100%); }
+.section-bg.progress { background: radial-gradient(circle at 50% 50%, #2a0d4a 0%, transparent 60%), linear-gradient(180deg, #050308 0%, #030105 100%); }
+.section-bg.character { background: radial-gradient(circle at 50% 40%, #4a0d3a 0%, transparent 55%), radial-gradient(circle at 20% 80%, #2a0d4a 0%, transparent 50%), linear-gradient(180deg, #08030a 0%, #030105 100%); }
 .dashboard-grid { grid-template-columns: 1fr 300px; }
 .cards-5 { grid-template-columns: repeat(5, 1fr); }
 .cards-4 { grid-template-columns: repeat(4, 1fr); }
