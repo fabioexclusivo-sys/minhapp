@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../AuthContext";
-import { api, fmtMoney } from "../../api";
-import { Briefcase, Crosshair, Car, Users, Target, Home as HomeIcon, Building2, Map as MapIcon, Trophy, User as UserIcon, Skull, Zap, Wrench, Activity, Shield, Sparkles, Clock, DollarSign, TrendingUp, Flame } from "lucide-react";
+import { api, fmtDetail, fmtMoney } from "../../api";
+import { toast } from "sonner";
+import { Briefcase, Crosshair, Car, Users, Target, Home as HomeIcon, Building2, Map as MapIcon, Trophy, User as UserIcon, Skull, Zap, Wrench, Activity, Shield, Sparkles, Clock, DollarSign, TrendingUp, Flame, CheckCircle2, Circle } from "lucide-react";
 import { HERO_BG, CARD_BG } from "../images";
 
 function BigCard({ id, title, color, image, desc, onClick, testid }) {
@@ -90,18 +91,29 @@ function timeAgo(iso) {
 }
 
 export default function HomeTab({ setTab }) {
-  const { user, catalog } = useAuth();
+  const { user, catalog, refresh } = useAuth();
   const spec = catalog?.specializations.find(s => s.id === user.specialization);
   const nextOp = (catalog?.heists || []).filter(h => user.level >= h.min_level).slice(-1)[0];
   const [ops, setOps] = useState([]);
   const [raids, setRaids] = useState([]);
+  const [missions, setMissions] = useState([]);
 
   useEffect(() => {
     (async () => {
       try { const { data } = await api.get("/heist/history"); setOps(data); } catch {}
       try { const { data } = await api.get("/pvp/history"); setRaids(data); } catch {}
+      try { const { data } = await api.get("/missions/daily"); setMissions(data); } catch {}
     })();
   }, []);
+
+  const claimMission = async (id) => {
+    try {
+      const { data } = await api.post("/missions/claim", { mission_id: id });
+      toast.success(`Mission claimed! +${fmtMoney(data.reward.cash)} · +${data.reward.xp}XP · +${data.reward.rep}REP`);
+      await refresh();
+      const { data: fresh } = await api.get("/missions/daily"); setMissions(fresh);
+    } catch (e) { toast.error(fmtDetail(e.response?.data?.detail)); }
+  };
 
   // Featured items
   const featuredWeapon = (() => {
@@ -127,7 +139,7 @@ export default function HomeTab({ setTab }) {
   ];
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 16 }}>
+    <div className="dashboard-grid" style={{ display: "grid", gap: 16 }}>
       <div style={{ display: "grid", gap: 14 }}>
         <div className="fade-in-up" style={{ position: "relative", overflow: "hidden", minHeight: 260, border: "1px solid #14141f", background: "#050508" }}>
           <img src={HERO_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.72 }} />
@@ -135,7 +147,7 @@ export default function HomeTab({ setTab }) {
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(3,3,8,0.7) 0%, transparent 45%)" }} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+        <div className="cards-5" style={{ display: "grid", gap: 12 }}>
           <BigCard testid="home-card-inventory" title="INVENTORY" color="#A855F7" image={CARD_BG.inventory} desc="Manage your items, ammo, gear and more." onClick={() => setTab("inventory")} />
           <BigCard testid="home-card-arsenal" title="ARSENAL" color="#EF4444" image={CARD_BG.arsenal} desc="Buy, upgrade and customize weapons." onClick={() => setTab("arsenal")} />
           <BigCard testid="home-card-garage" title="GARAGE" color="#38BDF8" image={CARD_BG.garage} desc="Your vehicles and vehicle upgrades." onClick={() => setTab("garage")} />
@@ -143,14 +155,14 @@ export default function HomeTab({ setTab }) {
           <BigCard testid="home-card-heists" title="HEISTS" color="#EC4899" image={CARD_BG.heists} desc="Plan, prepare and run operations." onClick={() => setTab("heists")} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        <div className="cards-4" style={{ display: "grid", gap: 12 }}>
           <BigCard testid="home-card-properties" title="PROPERTIES" color="#EC4899" image={CARD_BG.properties} desc="Buy, upgrade and manage your properties." onClick={() => setTab("assets")} />
           <BigCard testid="home-card-businesses" title="BUSINESSES" color="#F59E0B" image={CARD_BG.businesses} desc="Generate passive income and expand your empire." onClick={() => setTab("businesses")} />
           <BigCard testid="home-card-map" title="CITY MAP" color="#10B981" image={CARD_BG.map} desc="Explore the city and plan your moves." onClick={() => setTab("map")} />
           <BigCard testid="home-card-progress" title="PROGRESS" color="#A855F7" image={CARD_BG.progress} desc="Track your progress and unlock rewards." onClick={() => setTab("progress")} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        <div className="cards-3" style={{ display: "grid", gap: 12 }}>
           {featuredWeapon && <FeaturedCard title="FEATURED WEAPON" color="#EC4899" testid="featured-weapon">
             <div className="font-display" style={{ fontSize: 20, color: "#fff", fontWeight: 800, letterSpacing: "0.06em" }}>{featuredWeapon.name.toUpperCase()}</div>
             <div className="label-caps" style={{ fontSize: 9, color: "#EC4899", marginTop: 2 }}>{featuredWeapon.cat.toUpperCase()}</div>
@@ -203,6 +215,31 @@ export default function HomeTab({ setTab }) {
             ))}
           </div>
         </div>
+
+        <RightBlock title="DAILY MISSIONS" color="#F59E0B" testid="daily-missions">
+          {missions.length === 0 && <div style={{ color: "#64748B", fontSize: 11 }}>Loading missions...</div>}
+          {missions.map(m => (
+            <div key={m.id} data-testid={`mission-${m.id}`} style={{ padding: "10px 0", borderBottom: "1px solid #14141f" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {m.claimed ? <CheckCircle2 size={13} color="#10B981" /> : m.complete ? <CheckCircle2 size={13} color="#F59E0B" /> : <Circle size={13} color="#64748B" />}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 11, color: m.claimed ? "#64748B" : "#fff", fontWeight: 700, textDecoration: m.claimed ? "line-through" : "none" }}>{m.title}</div>
+                  <div style={{ fontSize: 10, color: "#64748B", marginTop: 1 }}>{m.desc}</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                <div style={{ flex: 1, height: 4, background: "#0a0a12", overflow: "hidden" }}>
+                  <div style={{ width: `${Math.min(100, (m.progress / m.target) * 100)}%`, height: "100%", background: m.claimed ? "#10B981" : "#F59E0B" }} />
+                </div>
+                <span style={{ fontSize: 9, color: "#94a3b8", whiteSpace: "nowrap" }}>{m.progress}/{m.target}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                <span style={{ fontSize: 9, color: "#10B981" }}>+{fmtMoney(m.reward_cash)} · +{m.reward_xp}XP</span>
+                {m.complete && <button data-testid={`claim-${m.id}`} onClick={() => claimMission(m.id)} className="btn-primary" style={{ padding: "4px 10px", fontSize: 9 }}>CLAIM</button>}
+              </div>
+            </div>
+          ))}
+        </RightBlock>
 
         <RightBlock title="EMPIRE OVERVIEW" color="#00F0FF" testid="empire-overview">
           <EmpireRow Icon={HomeIcon} label="PROPERTIES" value={(user.properties || []).length} max={catalog?.properties.length || 5} />

@@ -910,6 +910,125 @@ async def pvp_history(request: Request, limit: int = 20):
     raids = await db.raids.find({"$or": [{"attacker": user["username"]}, {"defender": user["username"]}]}, {"_id": 0}).sort("timestamp", -1).limit(limit).to_list(limit)
     return raids
 
+# ========== AUTO / OFFLINE RAIDS ==========
+@api.post("/tick/offline-raids")
+async def offline_raids(request: Request):
+    """Resolve offline events since last tick: police fines + gang raids per property."""
+    user = await get_current_user(request)
+    now = datetime.now(timezone.utc)
+    last = datetime.fromisoformat(user.get("last_tick", now.isoformat()))
+    hours = min(72, (now - last).total_seconds() / 3600)
+    if hours < 0.5:
+        return {"events": [], "hours": round(hours, 2)}
+    events = []
+    total_loss = 0
+    stash_loss = 0
+    heat_delta = 0
+    for prop in user.get("properties", []):
+        meta = find_item(PROPERTIES, prop["id"])
+        if not meta: continue
+        sec = prop.get("security", 30)
+        # attempts scale with time and heat
+        raid_chance = min(0.6, (hours / 48) * (1 + user["heat"] / 200))
+        # police raid
+        if random.random() < raid_chance * 0.6:
+            if random.random() * 100 > sec:
+                fine = random.randint(500, 3000) + meta["tier"] * 400
+                total_loss += fine
+                events.append({"type": "police", "prop": meta["name"], "msg": f"Police raided {meta['name']}. Fine ${fine}.", "amount": fine})
+            else:
+                heat_delta -= 3
+                events.append({"type": "defended", "prop": meta["name"], "msg": f"{meta['name']} security repelled a police search.", "amount": 0})
+        # gang raid
+        if random.random() < raid_chance * 0.5:
+            if random.random() * 100 > sec:
+                steal = min(prop.get("cash_stash", 0) + random.randint(300, 1500), user["money"] // 3 + 500)
+                stash_loss += steal
+                events.append({"type": "gang", "prop": meta["name"], "msg": f"Rival gang looted {meta['name']} for ${steal}.", "amount": steal})
+            else:
+                events.append({"type": "defended", "prop": meta["name"], "msg": f"{meta['name']} guards drove off a gang assault.", "amount": 0})
+    total = total_loss + stash_loss
+    new_money = max(0, user["money"] - total)
+    new_heat = max(0, min(100, user["heat"] + heat_delta))
+    stats = user["stats"]; stats["fines_paid"] += total_loss
+    await db.users.update_one({"id": user["id"]}, {"$set": {"money": new_money, "heat": new_heat, "last_tick": now.isoformat(), "stats": stats}})
+    return {"events": events, "hours": round(hours, 2), "total_lost": total, "money": new_money}
+
+# ========== DAILY MISSIONS ==========
+def get_daily_missions(user: dict):
+    """3 rotating deterministic daily missions."""
+    seed = int(datetime.now(timezone.utc).strftime("%Y%m%d")) + hash(user["id"]) % 1000
+    rng = random.Random(seed)
+    pool = [
+        {"id": "mission_quick", "title": "Street Hustle", "desc": "Complete 3 Quick Operations", "target": 3, "type": "ops_quick", "reward_cash": 1200, "reward_rep": 5, "reward_xp": 150},
+        {"id": "mission_kills", "title": "Bloody Hands", "desc": "Neutralize 8 enemies during operations", "target": 8, "type": "kills", "reward_cash": 1800, "reward_rep": 8, "reward_xp": 200},
+        {"id": "mission_earnings", "title": "Cash Flow", "desc": "Earn $5,000 from operations", "target": 5000, "type": "earnings", "reward_cash": 1500, "reward_rep": 6, "reward_xp": 180},
+        {"id": "mission_arsenal", "title": "Arms Dealer", "desc": "Purchase any 1 weapon", "target": 1, "type": "buy_weapon", "reward_cash": 900, "reward_rep": 3, "reward_xp": 100},
+        {"id": "mission_crew", "title": "Growing Family", "desc": "Hire any 1 new crew member", "target": 1, "type": "hire_crew", "reward_cash": 1000, "reward_rep": 4, "reward_xp": 120},
+        {"id": "mission_survive", "title": "Untouchable", "desc": "Successfully repel 1 PvP raid", "target": 1, "type": "raids_survived", "reward_cash": 2200, "reward_rep": 10, "reward_xp": 220},
+        {"id": "mission_heist", "title": "Big Score", "desc": "Complete 1 Heist tier operation", "target": 1, "type": "ops_heist", "reward_cash": 3000, "reward_rep": 12, "reward_xp": 280},
+    ]
+    rng.shuffle(pool)
+    return pool[:3]
+
+@api.get("/missions/daily")
+async def daily_missions(request: Request):
+    user = await get_current_user(request)
+    missions = get_daily_missions(user)
+    claimed = user.get("missions_claimed", {})
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    result = []
+    for m in missions:
+        # measure progress
+        t = m["type"]; s = user["stats"]
+        if t == "ops_quick": prog = s.get("ops_completed", 0)  # simplification
+        elif t == "kills": prog = s.get("enemies_killed", 0)
+        elif t == "earnings": prog = s.get("total_earnings", 0)
+        elif t == "buy_weapon": prog = len(user.get("weapons", []))
+        elif t == "hire_crew": prog = len(user.get("hired_crew", []))
+        elif t == "raids_survived": prog = s.get("raids_survived", 0)
+        elif t == "ops_heist": prog = s.get("ops_completed", 0)
+        else: prog = 0
+        is_claimed = claimed.get(f"{today}_{m['id']}", False)
+        result.append({**m, "progress": min(prog, m["target"]), "complete": prog >= m["target"] and not is_claimed, "claimed": is_claimed})
+    return result
+
+class ClaimIn(BaseModel):
+    mission_id: str
+
+@api.post("/missions/claim")
+async def claim_mission(data: ClaimIn, request: Request):
+    user = await get_current_user(request)
+    missions = get_daily_missions(user)
+    m = next((x for x in missions if x["id"] == data.mission_id), None)
+    if not m:
+        raise HTTPException(404, "Mission not available today")
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    key = f"{today}_{m['id']}"
+    claimed = user.get("missions_claimed", {})
+    if claimed.get(key):
+        raise HTTPException(400, "Already claimed")
+    # verify progress
+    t = m["type"]; s = user["stats"]
+    if t == "ops_quick": prog = s.get("ops_completed", 0)
+    elif t == "kills": prog = s.get("enemies_killed", 0)
+    elif t == "earnings": prog = s.get("total_earnings", 0)
+    elif t == "buy_weapon": prog = len(user.get("weapons", []))
+    elif t == "hire_crew": prog = len(user.get("hired_crew", []))
+    elif t == "raids_survived": prog = s.get("raids_survived", 0)
+    elif t == "ops_heist": prog = s.get("ops_completed", 0)
+    else: prog = 0
+    if prog < m["target"]:
+        raise HTTPException(400, "Not complete yet")
+    claimed[key] = True
+    new_money = user["money"] + m["reward_cash"]
+    new_xp = user["xp"] + m["reward_xp"]
+    new_rep = user["reputation"] + m["reward_rep"]
+    tmp = {"level": user["level"], "xp": new_xp}
+    check_level_up(tmp)
+    await db.users.update_one({"id": user["id"]}, {"$set": {"money": new_money, "xp": tmp["xp"], "level": tmp["level"], "reputation": new_rep, "missions_claimed": claimed}})
+    return {"ok": True, "reward": {"cash": m["reward_cash"], "xp": m["reward_xp"], "rep": m["reward_rep"]}, "money": new_money}
+
 @api.get("/")
 async def root():
     return {"game": "The Law of Silence", "status": "online"}

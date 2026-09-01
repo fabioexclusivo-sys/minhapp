@@ -323,3 +323,163 @@ class TestPvP:
     def test_raid_unknown_target(self, client, auth):
         r = client.post(f"{API}/pvp/raid", json={"target_username": "TEST_nonexistent_zzz", "property_id": "prop_apartment", "crew_ids": []}, headers=auth)
         assert r.status_code in (400, 404), f"{r.status_code} {r.text[:200]}"
+
+
+# ---------- iteration 3: daily missions ----------
+MISSION_FIELDS = ["id", "title", "desc", "target", "type", "reward_cash", "reward_rep", "reward_xp", "progress", "complete", "claimed"]
+
+
+class TestDailyMissions:
+    def test_requires_auth(self, client):
+        assert client.get(f"{API}/missions/daily").status_code == 401
+
+    def test_daily_returns_three_with_all_fields(self, client, auth):
+        r = client.get(f"{API}/missions/daily", headers=auth)
+        assert r.status_code == 200, r.text[:400]
+        missions = r.json()
+        assert isinstance(missions, list)
+        assert len(missions) == 3, f"expected 3 missions got {len(missions)}"
+        ids = [m["id"] for m in missions]
+        assert len(set(ids)) == 3, f"duplicate mission ids: {ids}"
+        for m in missions:
+            for f in MISSION_FIELDS:
+                assert f in m, f"missing field {f} in {m}"
+            assert isinstance(m["target"], int) and m["target"] > 0
+            assert isinstance(m["progress"], int)
+            assert m["progress"] <= m["target"]
+            assert isinstance(m["complete"], bool) and isinstance(m["claimed"], bool)
+            assert m["reward_cash"] > 0 and m["reward_xp"] > 0
+
+    def test_daily_is_deterministic_for_same_user(self, client, auth):
+        a = [m["id"] for m in client.get(f"{API}/missions/daily", headers=auth).json()]
+        b = [m["id"] for m in client.get(f"{API}/missions/daily", headers=auth).json()]
+        assert a == b, f"missions not deterministic: {a} vs {b}"
+
+    def test_claim_unknown_mission_404(self, client, auth):
+        r = client.post(f"{API}/missions/claim", json={"mission_id": "mission_does_not_exist"}, headers=auth)
+        assert r.status_code == 404, f"{r.status_code} {r.text[:200]}"
+
+    def test_claim_incomplete_400(self, client, auth, mongo, account):
+        # zero out progress-driving stats so no mission can be complete
+        mongo.users.update_one({"id": account["id"]}, {"$set": {
+            "stats.ops_completed": 0, "stats.enemies_killed": 0, "stats.total_earnings": 0,
+            "stats.raids_survived": 0, "weapons": [], "hired_crew": [],
+        }})
+        missions = client.get(f"{API}/missions/daily", headers=auth).json()
+        target = missions[0]
+        r = client.post(f"{API}/missions/claim", json={"mission_id": target["id"]}, headers=auth)
+        assert r.status_code == 400, f"expected 400 for incomplete, got {r.status_code} {r.text[:200]}"
+
+    def test_claim_awards_and_second_claim_rejected(self, client, auth, mongo, account):
+        missions = client.get(f"{API}/missions/daily", headers=auth).json()
+        m = missions[0]
+        # force completion in DB for whatever mission type it is
+        field = {
+            "ops_quick": "stats.ops_completed", "ops_heist": "stats.ops_completed",
+            "kills": "stats.enemies_killed", "earnings": "stats.total_earnings",
+            "raids_survived": "stats.raids_survived",
+        }.get(m["type"])
+        if field:
+            mongo.users.update_one({"id": account["id"]}, {"$set": {field: m["target"] + 5}})
+        elif m["type"] == "buy_weapon":
+            mongo.users.update_one({"id": account["id"]}, {"$set": {"weapons": [{"id": "w_pistol_9mm"}]}})
+        elif m["type"] == "hire_crew":
+            mongo.users.update_one({"id": account["id"]}, {"$set": {"hired_crew": [{"id": "npc_1"}]}})
+        else:
+            pytest.fail(f"unhandled mission type {m['type']}")
+        # confirm it now shows complete
+        refreshed = next(x for x in client.get(f"{API}/missions/daily", headers=auth).json() if x["id"] == m["id"])
+        assert refreshed["complete"] is True, f"mission not complete after seeding progress: {refreshed}"
+        assert refreshed["progress"] == refreshed["target"]
+
+        before = client.get(f"{API}/player/state", headers=auth).json()
+        r = client.post(f"{API}/missions/claim", json={"mission_id": m["id"]}, headers=auth)
+        assert r.status_code == 200, r.text[:400]
+        body = r.json()
+        assert body["ok"] is True
+        assert body["reward"]["cash"] == m["reward_cash"]
+        assert body["reward"]["xp"] == m["reward_xp"]
+        assert body["reward"]["rep"] == m["reward_rep"]
+        assert body["money"] == before["money"] + m["reward_cash"]
+
+        after = client.get(f"{API}/player/state", headers=auth).json()
+        assert after["money"] == before["money"] + m["reward_cash"]
+        assert after["reputation"] == before["reputation"] + m["reward_rep"]
+        # xp may roll over on level-up
+        if after["level"] == before["level"]:
+            assert after["xp"] == before["xp"] + m["reward_xp"]
+        else:
+            assert after["level"] > before["level"]
+
+        # mission now marked claimed
+        again = next(x for x in client.get(f"{API}/missions/daily", headers=auth).json() if x["id"] == m["id"])
+        assert again["claimed"] is True
+
+        # second claim rejected
+        r2 = client.post(f"{API}/missions/claim", json={"mission_id": m["id"]}, headers=auth)
+        assert r2.status_code == 400, f"double-claim allowed! {r2.status_code} {r2.text[:200]}"
+
+
+# ---------- iteration 3: offline raids tick ----------
+class TestOfflineRaids:
+    def test_requires_auth(self, client):
+        assert client.post(f"{API}/tick/offline-raids").status_code == 401
+
+    def test_fresh_user_no_events(self, client, auth, mongo, account):
+        from datetime import datetime, timezone
+        mongo.users.update_one({"id": account["id"]}, {"$set": {"last_tick": datetime.now(timezone.utc).isoformat()}})
+        r = client.post(f"{API}/tick/offline-raids", headers=auth)
+        assert r.status_code == 200, r.text[:400]
+        d = r.json()
+        assert d["events"] == []
+        assert d["hours"] < 0.5
+
+    def test_long_offline_with_properties_returns_events_and_updates_tick(self, client, auth, mongo, account):
+        from datetime import datetime, timedelta, timezone
+        old = (datetime.now(timezone.utc) - timedelta(hours=70)).isoformat()
+        mongo.users.update_one({"id": account["id"]}, {"$set": {
+            "last_tick": old,
+            "money": 500000,
+            "heat": 50,
+            "properties": [
+                {"id": "prop_apartment", "security": 0, "instance_id": "t1", "cash_stash": 1000},
+                {"id": "prop_warehouse", "security": 0, "instance_id": "t2", "cash_stash": 1000},
+            ],
+        }})
+        r = client.post(f"{API}/tick/offline-raids", headers=auth)
+        assert r.status_code == 200, r.text[:400]
+        d = r.json()
+        for k in ["events", "hours", "total_lost", "money"]:
+            assert k in d, f"missing key {k}"
+        assert d["hours"] <= 72
+        assert isinstance(d["events"], list)
+        for e in d["events"]:
+            assert set(["type", "prop", "msg", "amount"]).issubset(e.keys())
+            assert e["type"] in ("police", "gang", "defended")
+        assert d["total_lost"] >= 0
+        # last_tick moved forward
+        doc = mongo.users.find_one({"id": account["id"]})
+        assert doc["last_tick"] != old, "last_tick was not updated"
+        # money reduced by exactly total_lost
+        assert d["money"] == 500000 - d["total_lost"]
+
+    def test_high_security_defends(self, client, auth, mongo, account):
+        from datetime import datetime, timedelta, timezone
+        mongo.users.update_one({"id": account["id"]}, {"$set": {
+            "last_tick": (datetime.now(timezone.utc) - timedelta(hours=70)).isoformat(),
+            "money": 500000, "heat": 50,
+            "properties": [{"id": "prop_apartment", "security": 100, "instance_id": "t1", "cash_stash": 1000}],
+        }})
+        d = client.post(f"{API}/tick/offline-raids", headers=auth).json()
+        assert all(e["type"] == "defended" for e in d["events"]), f"security 100 should always defend: {d['events']}"
+        assert d["total_lost"] == 0
+
+    def test_naive_last_tick_does_not_crash(self, client, auth, mongo, account):
+        """Legacy/naive (no timezone) last_tick values must not 500 the endpoint."""
+        from datetime import datetime, timedelta
+        mongo.users.update_one({"id": account["id"]}, {"$set": {
+            "last_tick": (datetime.utcnow() - timedelta(hours=5)).isoformat(),
+            "properties": [],
+        }})
+        r = client.post(f"{API}/tick/offline-raids", headers=auth)
+        assert r.status_code == 200, f"naive last_tick crashed: {r.status_code} {r.text[:300]}"

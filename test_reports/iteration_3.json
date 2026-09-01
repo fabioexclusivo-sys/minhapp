@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 3 full-stack test of the 3 new features (mobile layout, auto/offline raids, daily missions) plus a full regression pass. Backend: extended /app/backend/tests/backend_test.py to 44 pytest cases (11 new for missions + offline raids) — 43 passed, 1 failed (naive/no-timezone last_tick makes POST /api/tick/offline-raids return 500). Verified GET /api/missions/daily returns exactly 3 unique missions with all 11 required fields and is deterministic per user, claim awards cash/xp/rep and persists (verified via /player/state), double-claim -> 400, unknown mission -> 404, incomplete -> 400, unauthenticated -> 401. Verified /tick/offline-raids: fresh user -> 0 events + hours<0.5, 70h-offline user with 0-security properties -> event list with type/prop/msg/amount, money reduced exactly by total_lost, last_tick advanced; security=100 -> all events 'defended' and total_lost=0. Frontend E2E on the public URL: /tick/offline-raids and /missions/daily are both called on Game mount; DAILY MISSIONS widget renders 3 mission-{id} items with title/desc/progress bar/target/reward, CLAIM buttons appear only for complete+unclaimed, claiming shows the success toast, HUD cash rises by the exact reward, button disappears and the item is greyed + line-through. Mobile (390x844): zero horizontal overflow, sidebar hidden (left=-260), menu-btn present, slides in (left=0), closes via X, backdrop click and tab selection (which also navigates). Responsive grids verified: cards-5 = 3 cols @1200, 2 @900, 1 @560; dashboard-grid collapses to 1 col <=900. Desktop regression all pass with zero console errors: arsenal buy, crew hire, property buy + upgrade-security, bank deposit/withdraw, business buy + collect, heist run -> outcome, PvP raid (needs level 5+), rankings/Progress (12 rows, iteration_2 500 bug is fixed).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/tick/offline-raids", "issue": "500 TypeError 'can't subtract offset-naive and offset-aware datetimes' when a user doc has a timezone-naive last_tick (datetime.fromisoformat at server.py:919 is not normalised). No such docs exist today (0/11 users), but any legacy/manually written value breaks the mount call for that user. Fix: if last.tzinfo is None: last = last.replace(tzinfo=timezone.utc)."},
+      {"endpoint": "POST /api/tick/offline-raids", "issue": "When hours < 0.5 the endpoint returns early WITHOUT updating last_tick and without total_lost/money keys in the response (contract says it always returns { events, hours, total_lost, money } and forces a last_tick update). Frontend only reads data.events so it doesn't break, but the response shape is inconsistent."},
+      {"endpoint": "POST /api/tick/offline-raids", "issue": "Gang raid 'steal' is subtracted from user.money but prop['cash_stash'] is never decremented, so the same stash can be looted again and again on every future tick."},
+      {"endpoint": "GET /api/missions/daily", "issue": "mission_quick ('Complete 3 Quick Operations') and mission_heist ('Complete 1 Heist tier operation') both read stats.ops_completed, so any operation of any tier progresses both — tier is not checked."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Home dashboard hero banner", "issue": "HERO_BG image URL returns HTTP 404 (unsplash photo-1601513237763-10aaaa60fbcf) -> large empty black hero block with a broken-image glyph on every dashboard load, desktop and mobile. Verified via document.images naturalWidth===0.", "selector": "images.js HERO_BG", "priority": "MEDIUM"},
+      {"component": "HUD @ <900px", "issue": "HUD is still a fixed 3-column grid (270px 1fr auto) so at 390px HEAT (left=398), REPUTATION (left=446) and all icon buttons incl. logout (left=636) sit outside the 390px viewport and are unreachable (no horizontal scroll). CASH/BANK are shrunk to 38px wide and their values are clipped. Sidebar/menu work, but the mobile HUD is effectively unusable.", "selector": "[data-testid=\"hud-heat\"], [data-testid=\"hud-rep\"]", "priority": "HIGH"},
+      {"component": "PvP tab", "issue": "RAID button is rendered disabled for level<5 with no inline explanation on the card (only a small 'Requires level 5+' line in the page intro) — looks broken to the user.", "selector": "[data-testid=\"raid-btn-0\"]", "priority": "LOW"},
+      {"component": "HUD toasts", "issue": "Carried over from iteration_2: sonner toast overlays the REPUTATION stat card top-right for ~4s after every action (including the mission-claim toast, which hides the rep increase it just announced).", "selector": "[data-testid=\"hud-rep\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Game shell @ 390x844", "issues": ["Mobile sidebar/hamburger/backdrop and grid reflow all work correctly; the only remaining mobile problem is the non-responsive HUD (heat/rep/icons off-screen)."]},
+      {"screen": "Home dashboard (all widths)", "issues": ["Broken hero image leaves a ~260px empty black band above the card grid."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Make HUD responsive below 900px (wrap/stack stat blocks or hide heat/rep behind a compact row) — heat, reputation and the icon buttons are currently off-screen on phones.",
+    "Replace the 404 HERO_BG unsplash URL in /app/frontend/src/game/images.js (all other CARD_BG images return 200).",
+    "server.py:919 — normalise naive last_tick to UTC before subtracting (currently 500s).",
+    "server.py:921 — early-return branch should still update last_tick and return total_lost/money for a consistent contract.",
+    "server.py get_daily_missions() — replace hash(user['id']) with a stable digest; Python string hash is salted per process so a backend restart reshuffles a user's daily missions mid-day (already-claimed keys become stale and the user can claim a fresh set of 3 rewards the same day).",
+    "server.py offline raids — decrement prop['cash_stash'] when a gang loots it."
+  ],
+  "critical_code_review_comments": [
+    "get_daily_missions() seeds with `int(YYYYMMDD) + hash(user['id']) % 1000`. CPython salts str hashes per process (PYTHONHASHSEED not pinned in supervisor), so the mission set is only stable for the lifetime of the uvicorn process — a restart/reload (the server runs with --reload) changes the 3 missions for every user, defeating the missions_claimed date_missionid guard and allowing repeat rewards on the same day. Use hashlib.sha256(user['id'].encode()).hexdigest() -> int instead.",
+    "/api/missions/daily returns complete=(prog>=target and not claimed), so a claimed mission reports complete=false; the flag mixes 'goal met' with 'claim available'. Frontend relies on this to hide the CLAIM button, but the field name is misleading for any other consumer.",
+    "Game.jsx useEffect posts /tick/offline-raids on every mount; under React StrictMode it fires twice (observed 2 requests). The second is a no-op only because of the hours<0.5 guard — keep that guard if the early-return branch is changed.",
+    "Home.jsx still swallows all three API calls in empty catch{} (no loading/error state for missions) — a 500 from /missions/daily leaves a permanent 'Loading missions...' with no error surfaced."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "98% (43/44 pytest)", "frontend": "100% of new-feature and regression flows pass; 2 UI defects (mobile HUD clipping, broken hero image)"},
+  "seed_data_creation": "Created UI test account test_ui3147da4@example.com / test1234 (username TESTUI3147da4, level 6, ~$300k, 1 property, 1 business, crew+weapons, all 3 daily missions force-completed via mongo). Left in DB for reuse. Pytest accounts are auto-deleted by the session fixture.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "/app/memory/test_credentials.md exists (signup-based flow, no admin seed). /app/auth_testing.md does NOT exist; the playbook items (httpOnly cookies, brute-force lockout, seed_admin) are not implemented — this app uses JWT in localStorage. bcrypt $2b$ format was verified in iteration_2 and the test still passes. Working creds: test_ui3147da4@example.com / test1234, tester@lawofsilence.com / test1234.",
+  "context_for_next_testing_agent": "Regression suite now at 44 tests in /app/backend/tests/backend_test.py (classes TestDailyMissions + TestOfflineRaids are new; they seed progress directly in mongo via the `mongo` fixture). Only failing test: TestOfflineRaids::test_naive_last_tick_does_not_crash (reproduces the 500). Frontend verified: missions widget + claim, mobile hamburger/backdrop/tab-close, breakpoints 1200/900/560/390, and the full desktop economy regression. Untested this round: inventory equip/unequip UI, arsenal heal + buy-ammo UI, map district interactions, HUD bell/mail/settings buttons (still no-op), mission rollover at UTC midnight.",
+  "rca_of_the_issue": "offline-raids 500: server.py:919 datetime.fromisoformat(user['last_tick']) returns a naive datetime for any value stored without an offset, and it is subtracted from an aware datetime.now(timezone.utc) -> TypeError -> 500 (confirmed in /var/log/supervisor/backend.err.log). Mobile HUD: HUD.jsx header uses a hard-coded gridTemplateColumns '270px 1fr auto' with height 96 and no media query, so the 4 stat blocks + 4 icon buttons need ~700px and overflow (hidden) past a 390px viewport."
+}

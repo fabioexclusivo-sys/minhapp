@@ -1,5 +1,5 @@
 import { useAuth } from "../AuthContext";
-import { Bell, Mail, Settings, Power, DollarSign, Landmark, Flame, Crown, User as UserIcon } from "lucide-react";
+import { Bell, Mail, Settings, Power, DollarSign, Landmark, Flame, Crown, User as UserIcon, Menu } from "lucide-react";
 
 function CornerFrame({ color }) {
   const s = { position: "absolute", width: 10, height: 10, borderColor: color };
@@ -36,7 +36,7 @@ function IconBtn({ Icon, badge, onClick, color = "#94a3b8", testid }) {
   );
 }
 
-export default function HUD() {
+export default function HUD({ toggleSidebar, showMenu }) {
   const { user, catalog, logout } = useAuth();
   const spec = catalog?.specializations.find(s => s.id === user.specialization);
   const xpMax = 1000 + (user.level - 1) * 500;
@@ -48,6 +48,7 @@ export default function HUD() {
   return (
     <header style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 60, background: "#030307", borderBottom: "1px solid #14141f", height: 96, display: "grid", gridTemplateColumns: "270px 1fr auto", alignItems: "center", gap: 14, padding: "0 18px" }} data-testid="hud">
       <div style={{ display: "flex", alignItems: "center", gap: 14 }} data-testid="hud-user">
+        {showMenu && <button data-testid="menu-btn" onClick={toggleSidebar} style={{ width: 40, height: 40, border: "1px solid #14141f", background: "#08080f", display: "flex", alignItems: "center", justifyContent: "center", color: "#EC4899" }}><Menu size={18} /></button>}
         <div style={{ position: "relative", width: 62, height: 62, border: `1px solid ${specColor}55`, background: `linear-gradient(135deg, ${specColor}33 0%, #050508 100%)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <UserIcon size={30} color={specColor} strokeWidth={1.2} style={{ filter: `drop-shadow(0 0 6px ${specColor}bb)` }} />
           <CornerFrame color={specColor} />
