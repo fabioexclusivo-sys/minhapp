@@ -1,10 +1,12 @@
 import { useAuth } from "../../AuthContext";
+import { User, Ghost, Skull, Wrench, Crown, EyeOff } from "lucide-react";
 
-const AVATAR_IMG = { av_1: "🥷", av_2: "👤", av_3: "🎭", av_4: "🔧", av_5: "👑", av_6: "💀" };
+const AVATAR_ICON = { av_1: User, av_2: Ghost, av_3: Skull, av_4: Wrench, av_5: Crown, av_6: EyeOff };
 
 export default function Character() {
   const { user, catalog } = useAuth();
   const spec = catalog?.specializations.find(s => s.id === user.specialization);
+  const Icon = AVATAR_ICON[user.avatar_id] || User;
   const xpMax = 1000 + (user.level - 1) * 500;
   const tiers = [
     { name: "Street Thug", range: "1-10", color: "#64748B" },
@@ -18,8 +20,8 @@ export default function Character() {
   return (
     <div style={{ display: "grid", gap: 20 }}>
       <div className="hologram-border card-glow" style={{ padding: 32, display: "grid", gridTemplateColumns: "auto 1fr", gap: 32, alignItems: "center" }} data-testid="character-panel">
-        <div style={{ width: 160, height: 160, border: `2px solid ${spec?.color}`, boxShadow: `0 0 30px ${spec?.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 80, background: "linear-gradient(160deg,#0a1424,#160b1e)" }}>
-          {AVATAR_IMG[user.avatar_id] || "👤"}
+        <div style={{ width: 160, height: 160, border: `2px solid ${spec?.color}`, boxShadow: `0 0 30px ${spec?.color}44`, display: "flex", alignItems: "center", justifyContent: "center", background: `linear-gradient(160deg,${spec?.color}22,#05050c 60%,#02020a)` }}>
+          <Icon size={82} strokeWidth={1.1} color={spec?.color} style={{ filter: `drop-shadow(0 0 14px ${spec?.color}bb)` }} />
         </div>
         <div>
           <div className="label-caps neon-cyan">OPERATOR PROFILE</div>

@@ -165,6 +165,20 @@ async def get_current_user(request: Request) -> dict:
             raise HTTPException(401, "User not found")
         user.pop("_id", None)
         user.pop("password_hash", None)
+        # backward-compat: fill defaults for pre-migration users
+        user.setdefault("armors", [])
+        user.setdefault("properties", [])
+        user.setdefault("businesses", [])
+        user.setdefault("bank", 0)
+        user.setdefault("hired_crew", [])
+        user.setdefault("weapons", [])
+        user.setdefault("vehicles", [])
+        user.setdefault("ammo", {"pistol": 0, "smg": 0, "rifle": 0, "shotgun": 0, "sniper": 0, "special": 0})
+        user.setdefault("equipped", {"primary": None, "secondary": None, "melee": None, "armor": None, "vehicle": "starter"})
+        stats = user.get("stats", {})
+        for k, v in {"ops_completed": 0, "ops_failed": 0, "enemies_killed": 0, "times_shot": 0, "crew_lost": 0, "total_earnings": 0, "total_spent": 0, "business_income": 0, "fines_paid": 0, "raids_survived": 0}.items():
+            stats.setdefault(k, v)
+        user["stats"] = stats
         return user
     except jwt.PyJWTError:
         raise HTTPException(401, "Invalid token")
@@ -276,6 +290,20 @@ async def login(data: LoginIn):
         raise HTTPException(401, "Invalid credentials")
     token = create_token(user["id"])
     user.pop("_id", None); user.pop("password_hash", None)
+    # backward-compat defaults
+    user.setdefault("armors", [])
+    user.setdefault("properties", [])
+    user.setdefault("businesses", [])
+    user.setdefault("bank", 0)
+    user.setdefault("hired_crew", [])
+    user.setdefault("weapons", [])
+    user.setdefault("vehicles", [])
+    user.setdefault("ammo", {"pistol": 0, "smg": 0, "rifle": 0, "shotgun": 0, "sniper": 0, "special": 0})
+    user.setdefault("equipped", {"primary": None, "secondary": None, "melee": None, "armor": None, "vehicle": "starter"})
+    stats = user.get("stats", {})
+    for k, v in {"ops_completed": 0, "ops_failed": 0, "enemies_killed": 0, "times_shot": 0, "crew_lost": 0, "total_earnings": 0, "total_spent": 0, "business_income": 0, "fines_paid": 0, "raids_survived": 0}.items():
+        stats.setdefault(k, v)
+    user["stats"] = stats
     return {"token": token, "user": user}
 
 @api.get("/auth/me")
@@ -667,8 +695,19 @@ async def heist_history(request: Request, limit: int = 30):
 # ========== RANKINGS ==========
 @api.get("/rankings")
 async def rankings(limit: int = 25):
-    users = await db.users.find({"specialization": {"$ne": None}}, {"_id": 0, "password_hash": 0, "email": 0}).sort([("level", -1), ("reputation", -1), ("stats.total_earnings", -1)]).limit(limit).to_list(limit)
-    return [{"username": u["username"], "level": u["level"], "reputation": u["reputation"], "specialization": u["specialization"], "total_earnings": u["stats"]["total_earnings"], "ops_completed": u["stats"]["ops_completed"]} for u in users]
+    users = await db.users.find({"specialization": {"$ne": None}}, {"_id": 0, "password_hash": 0, "email": 0}).sort([("level", -1), ("reputation", -1)]).limit(limit).to_list(limit)
+    result = []
+    for u in users:
+        stats = u.get("stats") or {}
+        result.append({
+            "username": u.get("username", "?"),
+            "level": u.get("level", 1),
+            "reputation": u.get("reputation", 0),
+            "specialization": u.get("specialization"),
+            "total_earnings": stats.get("total_earnings", 0),
+            "ops_completed": stats.get("ops_completed", 0),
+        })
+    return result
 
 # ========== PROPERTIES ==========
 @api.post("/property/buy")

@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 2 full-stack test. Backend: 33 pytest cases (auth/backward-compat, catalog, character, weapon/armor/ammo/vehicle/crew purchases, heists+history, properties, businesses+collect, bank, pvp, rankings) — 32 passed, 1 failed (NEW BUG: /api/rankings 500s when any user doc lacks 'stats'). Frontend E2E on the public URL: signup -> character-select (6 avatars/6 specs) -> /game works; login for existing user (TEST_qa250448@example.com) and tester@lawofsilence.com works; HUD (all 10 testids), Sidebar (13 nav-* + logout + live clock) and full Home dashboard (all 16 testids) render with ZERO console/page errors. All 13 sidebar tabs navigate and render content with no runtime errors. Economy verified end-to-end via HUD deltas: weapon buy (-3,400), vehicle buy-v-compact_x (-5,800), hire-npc_1 (-800), buy-prop-prop_apartment (-8,500), upgrade-prop_apartment (-5,750), bank deposit/withdraw, buy-biz-biz_carwash (-18,000) + collect income, heist run (event ticker -> operation-outcome PERFECT SUCCESS, HUD cash/heat/XP refresh after close), PvP raid (target list -> run-raid -> raid-result -> back). Backward-compat verified in the UI: a user doc stripped of properties/businesses/bank/armors/ammo/equipped/stats/hired_crew logs in and every tab renders — EXCEPT the Progress tab, which shows two 500s from /api/rankings.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/rankings",
+        "issue": "KeyError: 'stats' -> 500 (server.py:699). If ANY user document in the collection lacks the 'stats' key (legacy/pre-migration user), the rankings endpoint fails for ALL players, breaking the Progress tab. get_current_user()/login only inject defaults into the response, not for other users read by /rankings. Fix: use u.get('stats', {}).get('total_earnings', 0) / .get('ops_completed', 0) (and same defensive read for level/reputation), or run a one-time migration to $set stats on all docs.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/heist/run",
+        "issue": "Character-not-created check (400) runs before heist-id lookup, so an unknown heist_id returns 400 'Character not created' instead of 404 for users without a character. Cosmetic ordering issue."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "HUD user block", "issue": "Long usernames are clipped mid-character (e.g. 'TESTQA250448' renders as 'TESTQA25044E'); no ellipsis/truncation styling", "selector": "[data-testid=\"hud-user\"]", "priority": "LOW"},
+      {"component": "Progress tab", "issue": "Rankings list silently empty when /api/rankings 500s (catch{} swallows the error, no error state shown to user)", "selector": "[data-testid=\"nav-progress\"]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Game shell @ 390x844 (mobile)", "issues": ["No responsive layout: documentElement.scrollWidth=712 vs clientWidth=390 -> horizontal overflow; fixed 240px sidebar + marginLeft:240 main + 300px right rail push content off-screen. If the user previewed on a phone/small window this is likely what they saw as 'broken preview'."]},
+      {"screen": "Home dashboard @ 1366x768", "issues": ["BigCard titles clip inside the 5-card grid ('INVENTOR', 'GARAGE —' cut) because card width shrinks below the fixed title font size."]},
+      {"screen": "Character tab", "issues": ["Still uses an emoji avatar (\ud83e\udd77) while Character Select was converted to Lucide icons — inconsistent with the no-emoji requirement."]},
+      {"screen": "HUD toasts", "issues": ["Sonner toast overlays the REPUTATION stat card top-right, hiding its value for ~4s after every action."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "FIX (CRITICAL): server.py:699 /api/rankings — defensive .get() for stats (and migrate existing docs) so legacy users don't 500 the leaderboard for everyone.",
+    "Add responsive handling (collapsible sidebar / stacked grids) or at least a min-width scroll container so mobile/narrow previews are usable.",
+    "Show an error state in Progress tab instead of swallowing the /rankings failure in catch{}.",
+    "Truncate hud-user with ellipsis; replace emoji avatar in Character tab with Lucide icon; offset toast so it doesn't cover hud-rep."
+  ],
+  "critical_code_review_comments": [
+    "Backward-compat defaults are applied only in get_current_user()/login for the authenticated user; any endpoint reading OTHER user docs (/rankings, /pvp/targets, /pvp/raid defender) must use .get() with defaults. /pvp/targets and /pvp/raid already do; /rankings does not.",
+    "Heists.jsx/PvP.jsx: heist/raid POST errors are toasted but `running` state is left set on some paths (setRunning(false) only in catch) — verify no stuck spinner on network abort.",
+    "Progress.jsx and Home.jsx use empty catch{} on API calls — no loading/error UI, silently hides backend failures (exactly why the /rankings 500 was invisible)."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "97% (32/33)", "frontend": "100% of flows tested pass; 1 tab (Progress) shows backend 500 for legacy users"},
+  "seed_data_creation": "Signup users TEST_qa250448@example.com / test1234 (level 7, ~$457k, 1 crew, 1 vehicle) and test_qa191933@example.com / test1234 (seeded with prop_apartment so PvP targets exist). Both left in DB with 'stats' restored so /api/rankings is healthy again.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "/app/memory/test_credentials.md and /app/auth_testing.md do NOT exist in this workspace (playbook auth items — httpOnly cookies, brute-force lockout, seed_admin — are not implemented in this app; it uses JWT in localStorage 'tls_token'). Verified bcrypt hashes start with $2b$ via direct DB check. Working creds: tester@lawofsilence.com / test1234, TEST_qa250448@example.com / test1234.",
+  "context_for_next_testing_agent": "Backend regression suite at /app/backend/tests/backend_test.py (33 tests, runs under xdist; class-scoped `character` fixture ensures per-worker character creation). The only failing test is TestLegacyUserCompat::test_rankings_with_legacy_user_missing_stats — it reproduces the /api/rankings 500 by $unsetting 'stats' and restores it afterwards. Frontend: all HUD/sidebar/home data-testids exist and work; signup->character-select->game, arsenal/garage/crew/assets/businesses/heists/pvp flows all verified working with no console errors. Untested: notification/mail/settings HUD icon actions, inventory equip/unequip UI, arsenal heal + buy-ammo UI, map district interactions.",
+  "rca_of_the_issue": "User's 'can't preview' complaint: no runtime crash reproduced on desktop after the backward-compat fix — signup and legacy-user login both render the whole app. Two residual causes remain: (1) GET /api/rankings raises KeyError 'stats' for any pre-migration user doc, returning 500 and breaking the Progress tab for every player (backward-compat defaults were only added to the authenticated-user read path); (2) the layout is not responsive (scrollWidth 712 at 390px viewport), so on a phone/narrow preview the app appears cut off/unusable."
+}
