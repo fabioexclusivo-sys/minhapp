@@ -1,0 +1,173 @@
+{
+  "project_name": "THE LAW OF SILENCE - Online Crime/Heist Progression Game",
+  "archetype": "ELECTRIC & NEON / CYBERPUNK CRIME BRUTALISM",
+  "typography": {
+    "font_family_display": "Orbitron, Syncopate, Rajdhani, sans-serif",
+    "font_family_heading": "Chivo, Unbounded, Outfit, sans-serif",
+    "font_family_body": "IBM Plex Sans, Fira Code, monospace",
+    "google_fonts_link": "https://fonts.googleapis.com/css2?family=Chivo:ital,wght@0,300..900;1,300..900&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Orbitron:wght@500;700;800;900&family=Rajdhani:wght@500;600;700&family=Unbounded:wght@400;600;800&display=swap",
+    "hierarchy": {
+      "h1_title": "text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-wider uppercase font-display text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-400 drop-shadow-[0_0_15px_rgba(236,72,153,0.6)]",
+      "h2_section": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight uppercase font-heading text-white drop-shadow-[0_0_8px_rgba(0,240,255,0.4)]",
+      "h3_card_header": "text-xl sm:text-2xl font-bold tracking-wide uppercase font-display",
+      "stat_value": "text-2xl sm:text-3xl font-black font-mono tracking-wider",
+      "body_text": "text-sm sm:text-base font-normal leading-relaxed text-zinc-300 font-body",
+      "label_accent": "text-xs font-semibold uppercase tracking-[0.25em] text-cyan-400 font-mono"
+    }
+  },
+  "colors": {
+    "background_base": "#030305",
+    "background_card": "#09090e",
+    "background_card_hover": "#11111a",
+    "borders": {
+      "cyan": "rgba(0, 240, 255, 0.4)",
+      "magenta": "rgba(255, 0, 127, 0.4)",
+      "purple": "rgba(168, 85, 247, 0.4)",
+      "green": "rgba(16, 185, 129, 0.4)",
+      "red": "rgba(239, 68, 68, 0.4)",
+      "gold": "rgba(245, 158, 11, 0.4)"
+    },
+    "specializations": {
+      "Hacker": {
+        "primary": "#00F0FF",
+        "bg_gradient": "from-cyan-950/80 via-cyan-900/30 to-black",
+        "glow": "shadow-[0_0_20px_rgba(0,240,255,0.35)]",
+        "border": "border-cyan-500/60"
+      },
+      "Shooter": {
+        "primary": "#EF4444",
+        "bg_gradient": "from-red-950/80 via-red-900/30 to-black",
+        "glow": "shadow-[0_0_20px_rgba(239,68,68,0.35)]",
+        "border": "border-red-500/60"
+      },
+      "Driver": {
+        "primary": "#F59E0B",
+        "bg_gradient": "from-amber-950/80 via-amber-900/30 to-black",
+        "glow": "shadow-[0_0_20px_rgba(245,158,11,0.35)]",
+        "border": "border-amber-500/60"
+      },
+      "Infiltrator": {
+        "primary": "#A855F7",
+        "bg_gradient": "from-purple-950/80 via-purple-900/30 to-black",
+        "glow": "shadow-[0_0_20px_rgba(168,85,247,0.35)]",
+        "border": "border-purple-500/60"
+      },
+      "Negotiator": {
+        "primary": "#EC4899",
+        "bg_gradient": "from-pink-950/80 via-pink-900/30 to-black",
+        "glow": "shadow-[0_0_20px_rgba(236,72,153,0.35)]",
+        "border": "border-pink-500/60"
+      },
+      "Technician": {
+        "primary": "#10B981",
+        "bg_gradient": "from-emerald-950/80 via-emerald-900/30 to-black",
+        "glow": "shadow-[0_0_20px_rgba(16,185,129,0.35)]",
+        "border": "border-emerald-500/60"
+      }
+    },
+    "progression_tiers": {
+      "Street Thug": "#64748B",
+      "Enforcer": "#38BDF8",
+      "Operative": "#A855F7",
+      "Kingpin": "#F59E0B",
+      "Legend": "#EC4899"
+    },
+    "hud_metrics": {
+      "money": "#10B981",
+      "heat": "#EF4444",
+      "reputation": "#A855F7",
+      "xp": "#38BDF8",
+      "health": "#22C55E"
+    }
+  },
+  "visual_enhancers": {
+    "grid_pattern": "bg-[linear-gradient(to_right,#1f1f2e15_1px,transparent_1px),linear-gradient(to_bottom,#1f1f2e15_1px,transparent_1px)] bg-[size:24px_24px]",
+    "scanline_effect": "before:absolute before:inset-0 before:bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%)] before:bg-[length:100%_4px] before:pointer-events-none",
+    "hologram_border": "border border-cyan-500/40 relative after:absolute after:inset-[-1px] after:border after:border-pink-500/30 after:animate-pulse pointer-events-none",
+    "glow_shadow_large": "box-shadow: 0 0 35px -5px rgba(236, 72, 153, 0.3), 0 0 15px -3px rgba(6, 182, 212, 0.3)"
+  },
+  "layout_and_navigation": {
+    "persistent_hud": {
+      "position": "fixed top-0 left-0 right-0 z-50",
+      "style": "bg-black/90 backdrop-blur-md border-b border-cyan-900/50 px-4 py-2 sm:px-6 flex flex-wrap items-center justify-between gap-3 shadow-[0_4px_20px_rgba(0,0,0,0.9)]",
+      "elements": [
+        "Brand Logo & Level Badge (e.g., 'LVL 12 OPERATIVE')",
+        "Money Counter ($ dynamic animated ticker)",
+        "XP Progress Bar",
+        "Heat Gauge (0-100% with warning glowing red)",
+        "Reputation Score (Purple icon)",
+        "Health Bar (Green with pulse on low health)"
+      ]
+    },
+    "bottom_navigation": {
+      "position": "fixed bottom-0 left-0 right-0 z-50",
+      "style": "bg-black/95 backdrop-blur-xl border-t border-purple-900/50 py-2 px-3 sm:px-8 flex items-center justify-around max-w-7xl mx-auto shadow-[0_-4px_25px_rgba(0,0,0,0.95)]",
+      "tabs": [
+        {"id": "home", "label": "HOME", "icon": "LayoutDashboard"},
+        {"id": "character", "label": "CHARACTER", "icon": "User"},
+        {"id": "inventory", "label": "INVENTORY", "icon": "Briefcase"},
+        {"id": "arsenal", "label": "ARSENAL", "icon": "Crosshair"},
+        {"id": "garage", "label": "GARAGE", "icon": "Car"},
+        {"id": "crew", "label": "CREW", "icon": "Users"},
+        {"id": "heists", "label": "HEISTS", "icon": "Target"},
+        {"id": "map", "label": "MAP", "icon": "MapPin"},
+        {"id": "progress", "label": "PROGRESS", "icon": "Trophy"}
+      ]
+    },
+    "main_content_area": "pt-24 pb-28 px-4 sm:px-8 max-w-7xl mx-auto min-h-screen"
+  },
+  "reference_images_integration": {
+    "cards_grid_image": {
+      "url": "https://customer-assets-jai6qajn.emergentagent.net/job_84f7bbbd-916b-4aca-81f7-c910c1459d12/artifacts/mrgjk9cj_ee3fffa1-6aee-464d-bb69-b4de291e2c7e.png",
+      "usage": "Displayed as top visual reference banner in Character Select, Weapon Arsenal, and Garage header. Individual cards built with live React components styled identically to the reference image."
+    },
+    "progression_tiers_image": {
+      "url": "https://customer-assets-jai6qajn.emergentagent.net/job_84f7bbbd-916b-4aca-81f7-c910c1459d12/artifacts/u9in8rav_a6500e1b-ddc1-4c2f-a58c-fb5dc5c64761.png",
+      "usage": "Embedded in Character Progress / Tiers modal and detail panel showcasing rank milestones (Street Thug -> Enforcer -> Operative -> Kingpin -> Legend)."
+    },
+    "city_map_image_clean": {
+      "url": "https://customer-assets-jai6qajn.emergentagent.net/job_84f7bbbd-916b-4aca-81f7-c910c1459d12/artifacts/2xpkex4y_6864cbb1-dd9b-489f-98d0-47e8b27b2963.png",
+      "usage": "Interactive Map view background / overlay reference for the 7 Neon City districts (North, South, East, West, Downtown, Docks, Black Island)."
+    },
+    "city_map_image_nav": {
+      "url": "https://customer-assets-jai6qajn.emergentagent.net/job_84f7bbbd-916b-4aca-81f7-c910c1459d12/artifacts/lehbyomu_1a7a9087-54fc-45f8-a0df-66bc3a18123c.png",
+      "usage": "Full HUD & Map integration mockup preview in game guide / overview tab."
+    }
+  },
+  "image_urls": {
+    "cyberpunk_cars": [
+      "https://images.unsplash.com/photo-1630769660701-3454835913dc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwyfHxjeWJlcnB1bmslMjBuZW9uJTIwY2FyfGVufDB8fHx8MTc4ODI3NjE1OHww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1600998837340-4887228e311f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwzfHxjeWJlcnB1bmslMjBuZW9uJTIwY2FyfGVufDB8fHx8MTc4ODI3NjE1OHww&ixlib=rb-4.1.0&q=85"
+    ],
+    "cyberpunk_city": [
+      "https://images.unsplash.com/photo-1672872476232-da16b45c9001?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwyfHxjeWJlcnB1bmslMjBjaXR5fGVufDB8fHx8MTc4ODI3NjE2NXww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1573767291321-c0af2eaf5266?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwxfHxjeWJlcnB1bmslMjBjaXR5fGVufDB8fHx8MTc4ODI3NjE1NXww&ixlib=rb-4.1.0&q=85"
+    ]
+  },
+  "heist_simulation_ticker_animation": {
+    "engine": "Framer Motion AnimatePresence with step-by-step automatic event interval",
+    "event_format": "[HH:MM:SS] [CATEGORY_BADGE] EVENT DESCRIPTION ... [PERCENTAGE_PROGRESS]",
+    "outcomes": [
+      "PERFECT SUCCESS (+150% Cash, +200% Rep, 0% Health Loss)",
+      "SUCCESS (+100% Cash, +100% Rep, 10% Health Loss)",
+      "PARTIAL SUCCESS (+50% Cash, +40% Rep, 30% Health Loss, +20% Heat)",
+      "FAILED ($0 Cash, -10% Rep, 50% Health Loss, +35% Heat)",
+      "DISASTER ($0 Cash, Arrested/Hospitalized, 90% Health Loss, +50% Heat)"
+    ],
+    "audio_visual_feedback": "Glitch effect transitions, screen flash in green on bypass, red pulse on alarm, victory neon popup modal with detailed breakdown."
+  },
+  "general_ui_ux_guidelines": {
+    "data_testid_requirement": "EVERY interactive element (buttons, tabs, card selectors, input fields, heist triggers, inventory equip buttons) MUST include a kebab-case data-testid attribute. Example: data-testid='character-select-hacker-button', data-testid='bottom-nav-arsenal', data-testid='start-heist-button'.",
+    "mobile_first_responsiveness": "Grid fallback from 3-4 columns on desktop to 1 column on mobile screens; bottom navigation labels shrink to icons with subtle neon active dot on mobile.",
+    "hover_active_states": "Hover states must increase border glow brightness and scale element by 1.02x. Active states must show solid neon fill or inset glow.",
+    "zero_transparent_dropdowns": "All modals, tooltips, select menus, and popovers must have high-opacity solid backgrounds (e.g. bg-black/95 or bg-zinc-950) with 1px neon border. NO see-through unreadable dropdowns."
+  },
+  "instructions_to_main_agent": [
+    "Load Google Fonts in public/index.html with Orbitron, Rajdhani, Chivo, and IBM Plex Sans.",
+    "Build the persistent HUD with top fixed position containing Money, XP, Heat, Rep, Health, Level.",
+    "Build the bottom navigation bar sticky at the bottom with 9 neon icon buttons.",
+    "Implement persistent state using React context or local storage (email, user profile, money, items, crew, level, stats).",
+    "Integrate the 4 uploaded reference images in their respective screens (Character select banner, Tiers, Interactive Map district view).",
+    "Ensure all buttons and inputs have explicit `data-testid` attributes."
+  ]
+}
