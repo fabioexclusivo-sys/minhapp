@@ -30,7 +30,11 @@ export default function Sidebar({ tab, setTab }) {
 
   return (
     <aside style={{ position: "fixed", left: 0, top: 96, bottom: 0, width: 240, zIndex: 50, background: "#030307", borderRight: "1px solid #14141f", display: "flex", flexDirection: "column" }} data-testid="sidebar">
-      <nav style={{ flex: 1, overflowY: "auto", padding: "18px 12px" }}>
+      <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid #14141f" }}>
+        <div className="font-display" style={{ fontSize: 22, fontWeight: 900, letterSpacing: "0.16em", background: "linear-gradient(90deg, #EC4899 0%, #A855F7 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", lineHeight: 1, filter: "drop-shadow(0 0 10px rgba(236,72,153,0.45))" }}>NEON CITY</div>
+        <div className="label-caps" style={{ fontSize: 8, color: "#94a3b8", letterSpacing: "0.4em", marginTop: 4 }}>— THE LAW OF SILENCE —</div>
+      </div>
+      <nav style={{ flex: 1, overflowY: "auto", padding: "14px 12px" }}>
         {TABS.map(t => {
           const Icon = t.icon;
           const active = tab === t.id;

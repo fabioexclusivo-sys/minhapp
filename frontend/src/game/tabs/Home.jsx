@@ -2,19 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../AuthContext";
 import { api, fmtMoney } from "../../api";
 import { Briefcase, Crosshair, Car, Users, Target, Home as HomeIcon, Building2, Map as MapIcon, Trophy, User as UserIcon, Skull, Zap, Wrench, Activity, Shield, Sparkles, Clock, DollarSign, TrendingUp, Flame } from "lucide-react";
-
-const HERO_BG = "https://images.unsplash.com/photo-1518709414768-a88981a4515d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80";
-const CARD_BG = {
-  inventory: "https://images.unsplash.com/photo-1587920154070-2d8ce7d54eae?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-  arsenal: "https://images.unsplash.com/photo-1509057199576-632a47484ece?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-  garage: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-  crew: "https://images.unsplash.com/photo-1520350094754-f0fdcac35c1c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-  heists: "https://images.unsplash.com/photo-1531259683007-016a7b628fc3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-  properties: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-  businesses: "https://images.unsplash.com/photo-1572116469696-31de0f17cc34?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-  map: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-  progress: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-};
+import { HERO_BG, CARD_BG } from "../images";
 
 function BigCard({ id, title, color, image, desc, onClick, testid }) {
   return (

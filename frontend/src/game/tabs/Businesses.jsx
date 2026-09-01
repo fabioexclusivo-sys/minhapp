@@ -2,6 +2,7 @@ import { useAuth } from "../../AuthContext";
 import { api, fmtDetail, fmtMoney } from "../../api";
 import { toast } from "sonner";
 import { DollarSign } from "lucide-react";
+import { BUSINESS_IMG } from "../images";
 
 export default function Businesses() {
   const { user, catalog, refresh } = useAuth();
@@ -43,18 +44,24 @@ export default function Businesses() {
             const owned = (user.businesses || []).some(x => x.id === b.id);
             const riskPct = Math.round(b.inspection_risk * 100);
             return (
-              <div key={b.id} className="card-glow" style={{ padding: 18 }}>
-                <div className="label-caps" style={{ color: "#EC4899" }}>{b.district.replace("_", " ").toUpperCase()}</div>
-                <div className="font-display" style={{ color: "#fff", fontSize: 16, marginTop: 4, letterSpacing: "0.06em" }}>{b.name.toUpperCase()}</div>
-                <div style={{ fontSize: 12, color: "#94a3b8", margin: "10px 0", minHeight: 34 }}>{b.desc}</div>
-                <div style={{ fontSize: 11, color: "#64748B", display: "grid", gap: 3 }}>
-                  <div>DAILY: <span className="neon-green">{fmtMoney(b.daily_income)}</span></div>
-                  <div>INSPECTION RISK: <span style={{ color: riskPct > 20 ? "#EF4444" : "#F59E0B" }}>{riskPct}%</span></div>
-                  <div>FINE RANGE: <span style={{ color: "#EF4444" }}>{fmtMoney(b.fine_min)} – {fmtMoney(b.fine_max)}</span></div>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
-                  <div className="font-display neon-gold">{fmtMoney(b.price)}</div>
-                  <button data-testid={`buy-biz-${b.id}`} onClick={() => buyBiz(b)} disabled={owned || user.money < b.price} className="btn-primary" style={{ padding: "8px 12px", fontSize: 11 }}>{owned ? "OWNED" : "BUY"}</button>
+              <div key={b.id} className="card-glow" style={{ padding: 0, overflow: "hidden" }}>
+                {BUSINESS_IMG[b.id] && <div style={{ position: "relative", height: 130, overflow: "hidden" }}>
+                  <img src={BUSINESS_IMG[b.id]} alt="" loading="lazy" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.55 }} />
+                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 0%, rgba(3,3,8,0.5) 60%, #08080f 100%)" }} />
+                </div>}
+                <div style={{ padding: 18 }}>
+                  <div className="label-caps" style={{ color: "#EC4899" }}>{b.district.replace("_", " ").toUpperCase()}</div>
+                  <div className="font-display" style={{ color: "#fff", fontSize: 16, marginTop: 4, letterSpacing: "0.06em" }}>{b.name.toUpperCase()}</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", margin: "10px 0", minHeight: 34 }}>{b.desc}</div>
+                  <div style={{ fontSize: 11, color: "#64748B", display: "grid", gap: 3 }}>
+                    <div>DAILY: <span className="neon-green">{fmtMoney(b.daily_income)}</span></div>
+                    <div>INSPECTION RISK: <span style={{ color: riskPct > 20 ? "#EF4444" : "#F59E0B" }}>{riskPct}%</span></div>
+                    <div>FINE RANGE: <span style={{ color: "#EF4444" }}>{fmtMoney(b.fine_min)} – {fmtMoney(b.fine_max)}</span></div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
+                    <div className="font-display neon-gold">{fmtMoney(b.price)}</div>
+                    <button data-testid={`buy-biz-${b.id}`} onClick={() => buyBiz(b)} disabled={owned || user.money < b.price} className="btn-primary" style={{ padding: "8px 12px", fontSize: 11 }}>{owned ? "OWNED" : "BUY"}</button>
+                  </div>
                 </div>
               </div>
             );

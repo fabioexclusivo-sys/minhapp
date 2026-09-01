@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useAuth } from "../../AuthContext";
 import { api, fmtDetail, fmtMoney } from "../../api";
 import { toast } from "sonner";
-import { Crosshair, Zap, Sword, Target, Skull, Flame, Sparkles } from "lucide-react";
+import { Crosshair, Zap, Sword, Target, Skull, Flame } from "lucide-react";
+import { WEAPON_IMG } from "../images";
 
 const CATS = ["melee", "pistol", "smg", "rifle", "shotgun", "sniper", "special"];
 const CAT_COLORS = { melee: "#A855F7", pistol: "#38BDF8", smg: "#10B981", rifle: "#22C55E", shotgun: "#F59E0B", sniper: "#F97316", special: "#EF4444" };
@@ -50,9 +51,19 @@ export default function Arsenal() {
           const canAfford = user.money >= w.price;
           return (
             <div key={w.id} className="card-glow" style={{ padding: 0, borderColor: `${color}55`, overflow: "hidden" }}>
-              <div style={{ height: 110, background: `linear-gradient(160deg, ${color}22 0%, #05050c 60%, #02020a 100%)`, display: "flex", alignItems: "center", justifyContent: "center", borderBottom: `1px solid ${color}33`, position: "relative" }}>
-                <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 50% 60%, transparent 30%, rgba(0,0,0,0.65) 100%)" }} />
-                <Icon size={64} strokeWidth={1.1} color={color} style={{ filter: `drop-shadow(0 0 14px ${color}aa)` }} />
+              <div style={{ height: 130, background: `linear-gradient(160deg, ${color}22 0%, #05050c 60%, #02020a 100%)`, display: "flex", alignItems: "center", justifyContent: "center", borderBottom: `1px solid ${color}33`, position: "relative", overflow: "hidden" }}>
+                {WEAPON_IMG[w.id] ? (
+                  <>
+                    <img src={WEAPON_IMG[w.id]} alt="" loading="lazy" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.55, filter: "saturate(0.7)" }} />
+                    <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, transparent 0%, rgba(3,3,8,0.5) 60%, #050508 100%)` }} />
+                    <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${color}33 0%, transparent 60%)` }} />
+                  </>
+                ) : (
+                  <>
+                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 50% 60%, transparent 30%, rgba(0,0,0,0.65) 100%)" }} />
+                    <Icon size={64} strokeWidth={1.1} color={color} style={{ filter: `drop-shadow(0 0 14px ${color}aa)` }} />
+                  </>
+                )}
               </div>
               <div style={{ padding: 16 }}>
                 <div className="font-display" style={{ color, fontSize: 14, fontWeight: 800, letterSpacing: "0.1em" }}>{w.name.toUpperCase()}</div>
